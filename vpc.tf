@@ -1,27 +1,21 @@
 module "vpc" {
-  source = "git@github.com:Smana/terraform-aws-vpc.git"
 
-  aws_region      = var.global.region
-  aws_zones       = var.global.zones
-  vpc_name        = var.network.vpc_name
-  vpc_cidr        = var.network.vpc_cidr
-  private_subnets = "true"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "2.64.0"
 
-  ## Tags
+  name = var.vpc.vpc_name
+  cidr = var.vpc.vpc_cidr
+
+  azs             = var.global.zones
+  private_subnets = var.vpc.private_subnets
+  public_subnets  = var.vpc.public_subnets
+
+  enable_nat_gateway = true
+  enable_vpn_gateway = true
+  single_nat_gateway = true
+
   tags = {
-    env   = var.global.env
-    owner = "smana"
+    Terraform   = "true"
+    Environment = var.global.environment
   }
-}
-
-output "vpc" {
-  value = module.vpc.vpc_id
-}
-
-output "subnets" {
-  value = module.vpc.subnet_ids
-}
-
-output "private_subnets" {
-  value = module.vpc.private_subnet_ids
 }
