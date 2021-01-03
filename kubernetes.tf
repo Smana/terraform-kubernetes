@@ -1,37 +1,40 @@
-/*
 module "kubernetes" {
-  source = "git@github.com:Smana/terraform-aws-kubernetes.git"
+  source = "./modules/kubernetes"
 
-  aws_region           = var.global.region
-  cluster_name         = "smana"
-  master_instance_type = "t2.medium"
-  worker_instance_type = "t2.medium"
-  ssh_public_key       = "~/.ssh/id_rsa.pub"
-  ssh_access_cidr      = ["0.0.0.0/0"]
-  api_access_cidr      = ["0.0.0.0/0"]
-  min_worker_count     = 1
-  max_worker_count     = 3
-  hosted_zone          = "smana.me"
-  hosted_zone_private  = false
+  region = var.global.region
+  zones  = var.global.zones
 
-  master_subnet_id  = element(module.vpc.private_subnet_ids, 0)
-  worker_subnet_ids = module.vpc.private_subnet_ids
+  keypair_name = aws_key_pair.keypair.key_name
 
-  # Tags
-  tags = {
-    Application = "AWS-Kubernetes"
-    env         = var.global.env
+  hosted_zone = var.hosted_zone
+
+  public_subnets  = module.vpc.public_subnets
+  private_subnets = module.vpc.private_subnets
+  /* currently this is mandatory to give all the items within an object
+  waiting for the 'optional' function to be available
+  https://www.terraform.io/docs/configuration/types.html#experimental-optional-object-type-attributes
+  */
+  cluster = {
+    name = var.cluster.name
+    control_plane = {
+      instance_type = var.cluster.control_plane.instance_type
+      subnet_id     = element(module.vpc.private_subnets, 0)
+    }
+    worker = {
+      instance_type = var.cluster.worker.instance_type
+      subnet_ids    = module.vpc.private_subnets
+    }
+    autoscaling = {
+      min  = 1
+      max  = 3
+      tags = var.cluster.autoscaling.tags
+    }
   }
 
-  # Tags in a different format for Auto Scaling Group
-  tags2 = [
-    {
-      key                 = "Application"
-      value               = "AWS-Kubernetes"
-      propagate_at_launch = true
-    },
-  ]
+  allowed_ingress_cidr = {
+    ssh = ["0.0.0.0/0"]
+    api = ["0.0.0.0/0"]
+  }
 
-  addons = []
+  tags = var.tags
 }
-*/
