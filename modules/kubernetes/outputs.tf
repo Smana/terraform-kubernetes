@@ -3,6 +3,11 @@ output "ssh_user" {
   value       = "ubuntu"
 }
 
+output "api_dns" {
+  description = "Kubernetes API Load Balancer domain name"
+  value       = aws_route53_record.k8s-api.fqdn
+}
+
 # output "head_ip" {
 #   description = "Cluster IP address"
 #   value       = aws_eip.master.public_ip

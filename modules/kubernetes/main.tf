@@ -186,32 +186,18 @@ data "template_cloudinit_config" "control-plane_cloud_init" {
   }
 }
 
-resource "aws_instance" "control-plane" {
-  instance_type = var.cluster.control_plane.instance_type
+resource "aws_launch_configuration" "control-plane" {
+  name_prefix          = format("%s-control-plane-", var.cluster.name)
+  image_id             = data.aws_ami.ubuntu.id
+  instance_type        = var.cluster.control_plane.instance_type
+  key_name             = var.keypair_name
+  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
 
-  ami = data.aws_ami.ubuntu.id
-
-  key_name = var.keypair_name
-
-  subnet_id = var.cluster.control_plane.subnet_id
-
-  associate_public_ip_address = false
-
-  vpc_security_group_ids = [
+  security_groups = [
     aws_security_group.kubernetes.id,
   ]
 
-  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
-
   user_data = data.template_cloudinit_config.control-plane_cloud_init.rendered
-
-  tags = merge(
-    {
-      "Name"                                               = join("-", [var.cluster.name, "control-plane"])
-      format("kubernetes.io/cluster/%v", var.cluster.name) = "owned"
-    },
-    var.tags,
-  )
 
   root_block_device {
     volume_type           = "gp2"
@@ -220,30 +206,50 @@ resource "aws_instance" "control-plane" {
   }
 
   lifecycle {
-    ignore_changes = [
-      ami,
-      user_data,
-      associate_public_ip_address,
-    ]
+    create_before_destroy = true
+    ignore_changes        = [user_data]
   }
-  # connection {
-  #   user        = "ubuntu"
-  #   private_key = file("~/.ssh/id_rsa")
-  #   agent       = true
-  #   timeout     = "3m"
-  # }
-  # provisioner "remote-exec" {
-  #   inline = [
-  #     "cloud-init status --wait"
-  #   ]
-  # }
+}
+
+resource "aws_autoscaling_group" "control-plane" {
+  vpc_zone_identifier = var.private_subnets
+
+  name                 = format("%s-control-plane", var.cluster.name)
+  max_size             = 3
+  min_size             = 1
+  desired_capacity     = 1
+  launch_configuration = aws_launch_configuration.control-plane.name
+
+  tags = concat(
+    [{
+      key                 = "kubernetes.io/cluster/${var.cluster.name}"
+      value               = "owned"
+      propagate_at_launch = true
+      },
+      {
+        key                 = "Name"
+        value               = "${var.cluster.name}-control-plane"
+        propagate_at_launch = true
+    }],
+    var.cluster.autoscaling.tags,
+  )
+
+  lifecycle {
+    ignore_changes = [desired_capacity]
+  }
+}
+
+resource "aws_autoscaling_attachment" "k8s-api" {
+  autoscaling_group_name = aws_autoscaling_group.control-plane.id
+  elb                    = aws_elb.k8s-api.id
 }
 
 resource "aws_elb" "k8s-api" {
+  cross_zone_load_balancing = false
   health_check {
     healthy_threshold   = 2
     interval            = 10
-    target              = "TCP:6443"
+    target              = "SSL:6443"
     timeout             = 5
     unhealthy_threshold = 2
   }
@@ -286,7 +292,7 @@ resource "aws_security_group_rule" "https-elb-to-api" {
   type                     = "ingress"
 }
 
-resource "aws_security_group_rule" "ssh-external-to-bastion-elb-0-0-0-0--0" {
+resource "aws_security_group_rule" "https-ingress-to-k8s-api-elb-0-0-0-0--0" {
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 443
   protocol          = "tcp"
@@ -308,6 +314,12 @@ data "template_file" "init_worker" {
 data "template_cloudinit_config" "worker_cloud_init" {
   gzip          = true
   base64_encode = true
+
+  part {
+    filename     = "cloud-init-config.yaml"
+    content_type = "text/cloud-config"
+    content      = data.template_file.cloud_init_config.rendered
+  }
 
   part {
     filename     = "init-worker.sh"
@@ -368,7 +380,6 @@ resource "aws_autoscaling_group" "worker" {
     ignore_changes = [desired_capacity]
   }
 }
-
 
 /* DNS record */
 data "aws_route53_zone" "k8s_zone" {
