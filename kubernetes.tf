@@ -16,6 +16,7 @@ module "kubernetes" {
   cluster = {
     name = var.cluster.name
     control_plane = {
+      count         = var.cluster.control_plane.count
       instance_type = var.cluster.control_plane.instance_type
       subnet_id     = element(module.vpc.private_subnets, 0)
     }

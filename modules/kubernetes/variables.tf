@@ -44,6 +44,7 @@ variable "cluster" {
   type = object({
     name = string
     control_plane = object({
+      count         = number
       instance_type = string
       subnet_id     = string
     })
@@ -62,6 +63,7 @@ variable "cluster" {
     control_plane = {
       instance_type = "t2.medium"
       subnet_id     = null
+      count         = 1
     }
     worker = {
       instance_type = "t2.medium"

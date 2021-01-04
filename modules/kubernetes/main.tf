@@ -186,18 +186,28 @@ data "template_cloudinit_config" "control-plane_cloud_init" {
   }
 }
 
-resource "aws_launch_configuration" "control-plane" {
-  name_prefix          = format("%s-control-plane-", var.cluster.name)
-  image_id             = data.aws_ami.ubuntu.id
-  instance_type        = var.cluster.control_plane.instance_type
-  key_name             = var.keypair_name
-  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
+resource "aws_instance" "control-plane" {
+  count         = var.cluster.control_plane.count
+  instance_type = var.cluster.control_plane.instance_type
+  ami           = data.aws_ami.ubuntu.id
+  key_name      = var.keypair_name
+  subnet_id     = element(var.private_subnets, count.index)
 
-  security_groups = [
+  vpc_security_group_ids = [
     aws_security_group.kubernetes.id,
   ]
 
+  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
+
   user_data = data.template_cloudinit_config.control-plane_cloud_init.rendered
+
+  tags = merge(
+    {
+      "Name"                                               = join("-", [var.cluster.name, "control-plane", count.index])
+      format("kubernetes.io/cluster/%v", var.cluster.name) = "owned"
+    },
+    var.tags,
+  )
 
   root_block_device {
     volume_type           = "gp2"
@@ -206,42 +216,28 @@ resource "aws_launch_configuration" "control-plane" {
   }
 
   lifecycle {
-    create_before_destroy = true
-    ignore_changes        = [user_data]
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
   }
 }
 
-resource "aws_autoscaling_group" "control-plane" {
-  vpc_zone_identifier = var.private_subnets
-
-  name                 = format("%s-control-plane", var.cluster.name)
-  max_size             = 3
-  min_size             = 1
-  desired_capacity     = 1
-  launch_configuration = aws_launch_configuration.control-plane.name
-
-  tags = concat(
-    [{
-      key                 = "kubernetes.io/cluster/${var.cluster.name}"
-      value               = "owned"
-      propagate_at_launch = true
-      },
-      {
-        key                 = "Name"
-        value               = "${var.cluster.name}-control-plane"
-        propagate_at_launch = true
-    }],
-    var.cluster.autoscaling.tags,
-  )
-
-  lifecycle {
-    ignore_changes = [desired_capacity]
-  }
+resource "aws_elb_attachment" "k8s-api" {
+  count    = var.cluster.control_plane.count
+  elb      = aws_elb.k8s-api.id
+  instance = element(aws_instance.control-plane.*.id, count.index)
 }
 
-resource "aws_autoscaling_attachment" "k8s-api" {
-  autoscaling_group_name = aws_autoscaling_group.control-plane.id
-  elb                    = aws_elb.k8s-api.id
+data "aws_instances" "control-plane-0" {
+  instance_tags = {
+    "Name" = join("-", [var.cluster.name, "control-plane", "0"])
+  }
+
+  filter {
+    name   = "instance-id"
+    values = [aws_instance.control-plane[0].id]
+  }
 }
 
 resource "aws_elb" "k8s-api" {
