@@ -20,6 +20,10 @@ variable "keypair_name" {
   type        = string
 }
 
+variable "hosted_zone" {
+  description = "Hosted zone to be used for the alias"
+}
+
 variable "subnet_ids" {
   description = "value"
   type        = list(string)

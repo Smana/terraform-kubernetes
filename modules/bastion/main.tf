@@ -222,3 +222,19 @@ resource "aws_security_group_rule" "bastion-to-cluster-ssh" {
   to_port                  = 22
   type                     = "ingress"
 }
+
+/* DNS record */
+data "aws_route53_zone" "bastion_zone" {
+  name = format("%s.", var.hosted_zone)
+}
+
+resource "aws_route53_record" "bastion" {
+  alias {
+    evaluate_target_health = false
+    name                   = aws_elb.bastion.dns_name
+    zone_id                = aws_elb.bastion.zone_id
+  }
+  name    = format("%s-bastion.%s", local.prefix, var.hosted_zone)
+  type    = "A"
+  zone_id = data.aws_route53_zone.bastion_zone.zone_id
+}

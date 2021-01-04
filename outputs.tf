@@ -39,3 +39,15 @@ output "azs" {
   description = "A list of availability zones spefified as argument to this module"
   value       = module.vpc.azs
 }
+
+# Kubernetes API DNS
+output "api_dns" {
+  description = "Kubernetes API Load Balancer domain name"
+  value       = module.kubernetes.api_dns
+}
+
+# Bastion DNS
+output "bastion_dns" {
+  description = "Bastion Load Balancer domain name"
+  value       = module.bastion.bastion_fqdn
+}
