@@ -109,6 +109,7 @@ resource "aws_autoscaling_group" "bastion" {
   vpc_zone_identifier = var.subnet_ids
 
   name                 = format("%v-bastion", local.prefix)
+  load_balancers       = [format("%v-bastion", local.prefix)]
   max_size             = var.autoscaling.max
   min_size             = var.autoscaling.min
   desired_capacity     = var.autoscaling.min
@@ -119,7 +120,7 @@ resource "aws_autoscaling_group" "bastion" {
       {
         key                 = "Name"
         value               = format("%v-bastion", local.prefix)
-        propagate_at_launch = true
+        propagate_at_launch = "true"
     }],
     var.autoscaling.tags,
   )

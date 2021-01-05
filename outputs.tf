@@ -51,3 +51,9 @@ output "bastion_dns" {
   description = "Bastion Load Balancer domain name"
   value       = module.bastion.bastion_fqdn
 }
+
+# Control plane first instance ID
+output "control-plane_private_ips" {
+  description = "Control plane IP addresses"
+  value       = module.kubernetes.control-plane_private_ips
+}

@@ -47,6 +47,7 @@ variable "cluster" {
   type = object({
     name = string
     control_plane = object({
+      count         = number
       instance_type = string
     })
     worker = object({
@@ -61,6 +62,7 @@ variable "cluster" {
   default = {
     name = null
     control_plane = {
+      count         = 1
       instance_type = "t2.medium"
     }
     worker = {

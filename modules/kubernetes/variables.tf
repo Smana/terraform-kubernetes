@@ -13,6 +13,15 @@ variable "keypair_name" {
   type        = string
 }
 
+variable "ssh_user" {
+  description = "Username for SSH connections through the bastion"
+  default     = "ubuntu"
+}
+
+variable "bastion_host" {
+  description = "Bastion Host"
+}
+
 variable "hosted_zone" {
   description = "Hosted zone to be used for the alias"
 }
@@ -44,12 +53,11 @@ variable "cluster" {
   type = object({
     name = string
     control_plane = object({
+      count         = number
       instance_type = string
-      subnet_id     = string
     })
     worker = object({
       instance_type = string
-      subnet_ids    = list(string)
     })
     autoscaling = object({
       min  = number
@@ -61,11 +69,10 @@ variable "cluster" {
     name = null
     control_plane = {
       instance_type = "t2.medium"
-      subnet_id     = null
+      count         = 1
     }
     worker = {
       instance_type = "t2.medium"
-      subnet_ids    = []
     }
     autoscaling = {
       min  = 1

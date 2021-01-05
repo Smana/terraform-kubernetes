@@ -3,6 +3,11 @@ provider "aws" {
   region = var.region
 }
 
+/* Get the VPC ID*/
+data "aws_subnet" "cluster_subnet" {
+  id = element(var.private_subnets, 0)
+}
+
 /*
 kubeadm token
  See https://kubernetes.io/docs/reference/access-authn-authz/bootstrap-tokens/
@@ -83,63 +88,8 @@ resource "aws_iam_instance_profile" "worker_profile" {
 }
 
 # ----------------------------------------
-/* Security Groups */
-
-# Find VPC details based on control-plane subnet
-data "aws_subnet" "cluster_subnet" {
-  id = var.cluster.control_plane.subnet_id
-}
-
-resource "aws_security_group" "kubernetes" {
-  vpc_id = data.aws_subnet.cluster_subnet.vpc_id
-  name   = var.cluster.name
-
-  tags = local.tags
-}
-
-# Allow outgoing connectivity
-resource "aws_security_group_rule" "allow_all_outbound_from_kubernetes" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.kubernetes.id
-}
-
-# Allow SSH connections from given CIDR
-resource "aws_security_group_rule" "ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = var.allowed_ingress_cidr.ssh
-  security_group_id = aws_security_group.kubernetes.id
-}
-
-# Allow API connections only from specific CIDR's
-resource "aws_security_group_rule" "allow_api_from_cidr" {
-  type              = "ingress"
-  from_port         = 6443
-  to_port           = 6443
-  protocol          = "tcp"
-  cidr_blocks       = var.allowed_ingress_cidr.api
-  security_group_id = aws_security_group.kubernetes.id
-}
-
-# Allow the security group members to talk with each other without restrictions
-resource "aws_security_group_rule" "allow_cluster_internal" {
-  type                     = "ingress"
-  from_port                = 0
-  to_port                  = 0
-  protocol                 = "-1"
-  source_security_group_id = aws_security_group.kubernetes.id
-  security_group_id        = aws_security_group.kubernetes.id
-}
-
-# -----------------------------------
 /* EC2 instances */
-# -----------------------------------
+
 data "aws_ami" "ubuntu" {
   owners      = ["099720109477"] # AWS account ID of Canonical
   most_recent = true
@@ -151,16 +101,16 @@ data "aws_ami" "ubuntu" {
 
 /* control-plane instance */
 data "template_file" "init_control-plane" {
+  count    = var.cluster.control_plane.count
   template = file(format("%v/scripts/init_control-plane.sh", path.module))
 
   vars = {
-    kubeadm_token   = local.token
-    cluster_name    = var.cluster.name
-    region          = var.region
-    subnets         = join(" ", concat(var.cluster.worker.subnet_ids, [var.cluster.control_plane.subnet_id]))
-    asg_name        = format("%v-workers", var.cluster.name)
-    asg_min_workers = var.cluster.autoscaling.min
-    asg_max_workers = var.cluster.autoscaling.max
+    region              = var.region
+    subnets             = join(" ", var.private_subnets)
+    cluster_name        = var.cluster.name
+    api_dns             = aws_route53_record.k8s-api.fqdn
+    control_plane_index = count.index
+    kubeadm_token       = local.token
   }
 }
 
@@ -170,6 +120,7 @@ data "template_file" "cloud_init_config" {
 }
 
 data "template_cloudinit_config" "control-plane_cloud_init" {
+  count         = var.cluster.control_plane.count
   gzip          = true
   base64_encode = true
 
@@ -182,22 +133,36 @@ data "template_cloudinit_config" "control-plane_cloud_init" {
   part {
     filename     = "init-control-plane.sh"
     content_type = "text/x-shellscript"
-    content      = data.template_file.init_control-plane.rendered
+    content      = element(data.template_file.init_control-plane.*.rendered, count.index)
   }
 }
 
-resource "aws_launch_configuration" "control-plane" {
-  name_prefix          = format("%s-control-plane-", var.cluster.name)
-  image_id             = data.aws_ami.ubuntu.id
-  instance_type        = var.cluster.control_plane.instance_type
-  key_name             = var.keypair_name
-  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
+resource "aws_instance" "control-plane" {
+  count         = var.cluster.control_plane.count
+  instance_type = var.cluster.control_plane.instance_type
+  ami           = data.aws_ami.ubuntu.id
+  key_name      = var.keypair_name
+  subnet_id     = element(var.private_subnets, count.index)
 
-  security_groups = [
+  vpc_security_group_ids = [
     aws_security_group.kubernetes.id,
   ]
 
-  user_data = data.template_cloudinit_config.control-plane_cloud_init.rendered
+  iam_instance_profile = aws_iam_instance_profile.control-plane_profile.name
+
+  user_data = element(data.template_cloudinit_config.control-plane_cloud_init.*.rendered, count.index)
+
+  tags = merge(
+    {
+      "Name"                                               = join("-", [var.cluster.name, "control-plane", count.index])
+      format("kubernetes.io/cluster/%v", var.cluster.name) = "owned"
+    },
+    {
+      "Role"                                               = join("-", [var.cluster.name, "control-plane"])
+      format("kubernetes.io/cluster/%v", var.cluster.name) = "owned"
+    },
+    var.tags,
+  )
 
   root_block_device {
     volume_type           = "gp2"
@@ -206,42 +171,39 @@ resource "aws_launch_configuration" "control-plane" {
   }
 
   lifecycle {
-    create_before_destroy = true
-    ignore_changes        = [user_data]
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
   }
 }
 
-resource "aws_autoscaling_group" "control-plane" {
-  vpc_zone_identifier = var.private_subnets
+resource "aws_elb_attachment" "k8s-api" {
+  count    = var.cluster.control_plane.count
+  elb      = aws_elb.k8s-api.id
+  instance = element(aws_instance.control-plane.*.id, count.index)
+}
 
-  name                 = format("%s-control-plane", var.cluster.name)
-  max_size             = 3
-  min_size             = 1
-  desired_capacity     = 1
-  launch_configuration = aws_launch_configuration.control-plane.name
+data "aws_instances" "control-plane" {
+  instance_tags = {
+    "Role" = join("-", [var.cluster.name, "control-plane"])
+  }
 
-  tags = concat(
-    [{
-      key                 = "kubernetes.io/cluster/${var.cluster.name}"
-      value               = "owned"
-      propagate_at_launch = true
-      },
-      {
-        key                 = "Name"
-        value               = "${var.cluster.name}-control-plane"
-        propagate_at_launch = true
-    }],
-    var.cluster.autoscaling.tags,
-  )
-
-  lifecycle {
-    ignore_changes = [desired_capacity]
+  filter {
+    name   = "instance-id"
+    values = aws_instance.control-plane.*.id
   }
 }
 
-resource "aws_autoscaling_attachment" "k8s-api" {
-  autoscaling_group_name = aws_autoscaling_group.control-plane.id
-  elb                    = aws_elb.k8s-api.id
+data "aws_instances" "control-plane-0" {
+  instance_tags = {
+    "Name" = join("-", [var.cluster.name, "control-plane", "0"])
+  }
+
+  filter {
+    name   = "instance-id"
+    values = [aws_instance.control-plane[0].id]
+  }
 }
 
 resource "aws_elb" "k8s-api" {
@@ -267,47 +229,13 @@ resource "aws_elb" "k8s-api" {
   tags            = var.tags
 }
 
-resource "aws_security_group" "k8s-api-elb" {
-  description = "Security group for the Kubernetes API ELB"
-  name        = format("%v-k8s-api-elb", var.cluster.name)
-  tags        = var.tags
-  vpc_id      = data.aws_subnet.cluster_subnet.vpc_id
-}
-
-resource "aws_security_group_rule" "k8s-api-elb-egress" {
-  cidr_blocks       = ["0.0.0.0/0"]
-  from_port         = 0
-  protocol          = "-1"
-  security_group_id = aws_security_group.k8s-api-elb.id
-  to_port           = 0
-  type              = "egress"
-}
-
-resource "aws_security_group_rule" "https-elb-to-api" {
-  from_port                = 443
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.kubernetes.id
-  source_security_group_id = aws_security_group.k8s-api-elb.id
-  to_port                  = 6443
-  type                     = "ingress"
-}
-
-resource "aws_security_group_rule" "https-ingress-to-k8s-api-elb-0-0-0-0--0" {
-  cidr_blocks       = ["0.0.0.0/0"]
-  from_port         = 443
-  protocol          = "tcp"
-  security_group_id = aws_security_group.k8s-api-elb.id
-  to_port           = 443
-  type              = "ingress"
-}
-
 /* worker instances */
 data "template_file" "init_worker" {
   template = file("${path.module}/scripts/init_worker.sh")
 
   vars = {
-    kubeadm_token          = local.token
-    control_plane_dns_name = aws_elb.k8s-api.dns_name
+    kubeadm_token = local.token
+    api_dns       = aws_elb.k8s-api.dns_name
   }
 }
 
@@ -381,6 +309,90 @@ resource "aws_autoscaling_group" "worker" {
   }
 }
 
+# ----------------------------------------
+/* Security Groups */
+
+resource "aws_security_group" "kubernetes" {
+  vpc_id = data.aws_subnet.cluster_subnet.vpc_id
+  name   = var.cluster.name
+
+  tags = local.tags
+}
+
+# Allow outgoing connectivity
+resource "aws_security_group_rule" "allow_all_outbound_from_kubernetes" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.kubernetes.id
+}
+
+# Allow SSH connections from given CIDR
+resource "aws_security_group_rule" "ingress_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = var.allowed_ingress_cidr.ssh
+  security_group_id = aws_security_group.kubernetes.id
+}
+
+# Allow API connections only from specific CIDR's
+resource "aws_security_group_rule" "allow_api_from_cidr" {
+  type              = "ingress"
+  from_port         = 6443
+  to_port           = 6443
+  protocol          = "tcp"
+  cidr_blocks       = var.allowed_ingress_cidr.api
+  security_group_id = aws_security_group.kubernetes.id
+}
+
+# Allow the security group members to talk with each other without restrictions
+resource "aws_security_group_rule" "allow_cluster_internal" {
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.kubernetes.id
+  security_group_id        = aws_security_group.kubernetes.id
+}
+
+resource "aws_security_group" "k8s-api-elb" {
+  description = "Security group for the Kubernetes API ELB"
+  name        = format("%v-k8s-api-elb", var.cluster.name)
+  tags        = var.tags
+  vpc_id      = data.aws_subnet.cluster_subnet.vpc_id
+}
+
+resource "aws_security_group_rule" "k8s-api-elb-egress" {
+  cidr_blocks       = ["0.0.0.0/0"]
+  from_port         = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.k8s-api-elb.id
+  to_port           = 0
+  type              = "egress"
+}
+
+resource "aws_security_group_rule" "https-elb-to-api" {
+  from_port                = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.kubernetes.id
+  source_security_group_id = aws_security_group.k8s-api-elb.id
+  to_port                  = 6443
+  type                     = "ingress"
+}
+
+resource "aws_security_group_rule" "https-ingress-to-k8s-api-elb-0-0-0-0--0" {
+  cidr_blocks       = ["0.0.0.0/0"]
+  from_port         = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.k8s-api-elb.id
+  to_port           = 443
+  type              = "ingress"
+}
+
 /* DNS record */
 data "aws_route53_zone" "k8s_zone" {
   name = format("%s.", var.hosted_zone)
@@ -395,4 +407,40 @@ resource "aws_route53_record" "k8s-api" {
   name    = format("api-%s.%s", var.cluster.name, var.hosted_zone)
   type    = "A"
   zone_id = data.aws_route53_zone.k8s_zone.zone_id
+}
+
+resource "null_resource" "wait_for_kubeadm_cloud_init" {
+  connection {
+    timeout = "10m"
+    host    = aws_instance.control-plane[0].private_ip
+    user    = var.ssh_user
+    #private_key         = var.ssh_private_key
+    bastion_user = var.ssh_user
+    bastion_host = var.bastion_host
+    #bastion_private_key = var.bastion_private_key
+  }
+  provisioner "remote-exec" {
+    inline = [
+      "cloud-init status --wait"
+    ]
+  }
+}
+
+resource "null_resource" "download_kubeconfig" {
+  connection {
+    timeout = "10m"
+    host    = aws_instance.control-plane[0].private_ip
+    user    = var.ssh_user
+    #private_key         = var.ssh_private_key
+    bastion_user = var.ssh_user
+    bastion_host = var.bastion_host
+    #bastion_private_key = var.bastion_private_key
+  }
+
+  provisioner "local-exec" {
+    command = format("scp -J %s@%s %s@%s:/home/ubuntu/admin.conf %s/%s-kubecfg.yaml",
+    var.ssh_user, var.bastion_host, var.ssh_user, aws_instance.control-plane[0].private_ip, path.root, var.cluster.name)
+  }
+
+  depends_on = [null_resource.wait_for_kubeadm_cloud_init]
 }

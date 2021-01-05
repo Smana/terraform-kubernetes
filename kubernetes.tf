@@ -5,6 +5,7 @@ module "kubernetes" {
   zones  = var.global.zones
 
   keypair_name = aws_key_pair.keypair.key_name
+  bastion_host = module.bastion.bastion_fqdn
   hosted_zone  = var.hosted_zone
 
   public_subnets  = module.vpc.public_subnets
@@ -16,6 +17,7 @@ module "kubernetes" {
   cluster = {
     name = var.cluster.name
     control_plane = {
+      count         = var.cluster.control_plane.count
       instance_type = var.cluster.control_plane.instance_type
       subnet_id     = element(module.vpc.private_subnets, 0)
     }

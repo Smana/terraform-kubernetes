@@ -7,3 +7,7 @@ output "api_dns" {
   description = "Kubernetes API Load Balancer domain name"
   value       = aws_route53_record.k8s-api.fqdn
 }
+output "control-plane_private_ips" {
+  description = "Control plane instances private IP addresses"
+  value       = data.aws_instances.control-plane.private_ips
+}

@@ -5,13 +5,12 @@ set -o verbose
 set -o errexit
 set -o pipefail
 
-export KUBEADM_TOKEN=${kubeadm_token}
-export CLUSTER_NAME=${cluster_name}
-export ASG_NAME=${asg_name}
-export ASG_MIN_WORKERS="${asg_min_workers}"
-export ASG_MAX_WORKERS="${asg_max_workers}"
 export REGION=${region}
 export SUBNETS="${subnets}"
+export CLUSTER_NAME=${cluster_name}
+export API_DNS="${api_dns}"
+export CONTROL_PLANE_INDEX="${control_plane_index}"
+export KUBEADM_TOKEN=${kubeadm_token}
 export KUBERNETES_VERSION="1.20.1"
 
 # Set this only after setting the defaults
@@ -76,6 +75,7 @@ apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
 apiServer:
   certSANs:
+  - $API_DNS
   - {{ ds.meta_data.local_ipv4}}
   - {{ ds.meta_data.hostname }}
   extraArgs:
@@ -102,11 +102,13 @@ scheduler: {}
 EOF
 
 
-kubeadm reset --force
-kubeadm init --skip-phases=addon/kube-proxy --config /home/ubuntu/kubeadm.yaml
-
-# Use the local kubectl config for further kubectl operations
-export KUBECONFIG=/etc/kubernetes/admin.conf
+if [ $CONTROL_PLANE_INDEX -eq 0 ]; then
+  kubeadm reset --force
+  kubeadm init --skip-phases=addon/kube-proxy --config /home/ubuntu/kubeadm.yaml
+  cp /etc/kubernetes/admin.conf /home/ubuntu && chown ubuntu /home/ubuntu/admin.conf
+else
+  echo "ha control plane"
+fi
 
 # Start services
 systemctl enable containerd kubelet

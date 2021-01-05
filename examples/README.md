@@ -11,27 +11,6 @@ hosted_zone = "cloud.smana.me"
 
 tags = {}
 
-cluster = {
-    name = "k8s-smana"
-    control_plane = {
-      instance_type = "t2.medium"
-    }
-    worker = {
-      instance_type = "t2.medium"
-    }
-    autoscaling = {
-        max = 1
-        min = 3
-        tags = [
-        {
-          key                 = "Application"
-          value               = "Kubernetes"
-          propagate_at_launch = true
-        }
-      ]
-    }
-}
-
 vpc = {
     vpc_name = "myvpc"
     vpc_cidr        = "10.0.0.0/16"
@@ -48,8 +27,31 @@ bastion = {
       {
         key = "Application"
         value = "Kubernetes"
+        propagate_at_launch = "true"
       }
     ]
   }
+}
+
+cluster = {
+    name = "smana"
+    control_plane = {
+      count = 2
+      instance_type = "t2.medium"
+    }
+    worker = {
+      instance_type = "t2.medium"
+    }
+    autoscaling = {
+        max = 1
+        min = 3
+        tags = [
+        {
+          key                 = "Application"
+          value               = "Kubernetes"
+          propagate_at_launch = "true"
+        }
+      ]
+    }
 }
 ```
