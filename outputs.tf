@@ -53,7 +53,7 @@ output "bastion_dns" {
 }
 
 # Control plane first instance ID
-output "control-plane-0-id" {
-  description = "Control plane first instance ID"
-  value       = module.kubernetes.control-plane-0-id
+output "control-plane_private_ips" {
+  description = "Control plane IP addresses"
+  value       = module.kubernetes.control-plane_private_ips
 }

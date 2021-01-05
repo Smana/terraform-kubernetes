@@ -4,7 +4,6 @@ variable "name" {
   default     = null
 }
 
-
 variable "region" {
   description = "Name of the AWS Region"
   default     = "eu-west-3"
