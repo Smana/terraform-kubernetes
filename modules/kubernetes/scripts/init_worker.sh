@@ -6,8 +6,7 @@ set -o errexit
 set -o pipefail
 
 export KUBEADM_TOKEN=${kubeadm_token}
-export API_DNS="${api_dns}"
-export KUBERNETES_VERSION="1.20.1"
+export API_ELB_DNS="${api_elb_dns}"
 
 # Set this only after setting the defaults
 set -o nounset
@@ -45,7 +44,7 @@ apiVersion: kubeadm.k8s.io/v1beta2
 kind: JoinConfiguration
 discovery:
   bootstrapToken:
-    apiServerEndpoint: $API_DNS:6443
+    apiServerEndpoint: $API_ELB_DNS:6443
     token: $KUBEADM_TOKEN
     unsafeSkipCAVerification: true
   timeout: 5m0s

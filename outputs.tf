@@ -47,9 +47,9 @@ output "api_dns" {
 }
 
 # Bastion DNS
-output "bastion_dns" {
+output "bastion_host" {
   description = "Bastion Load Balancer domain name"
-  value       = module.bastion.bastion_fqdn
+  value       = module.bastion.bastion_cname_dns
 }
 
 # Control plane first instance ID
