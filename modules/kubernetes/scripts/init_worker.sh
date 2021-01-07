@@ -29,6 +29,12 @@ net.ipv4.ip_forward                 = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 EOF
 
+sysctl --system
+
+# Containerd configuration
+mkdir -p /etc/containerd
+containerd config default > /etc/containerd/config.toml
+
 # Start services
 systemctl enable containerd kubelet
 systemctl start containerd kubelet
