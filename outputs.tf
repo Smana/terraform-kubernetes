@@ -61,5 +61,5 @@ output "control-plane_private_ips" {
 # Kubeconfig generated locally after the cluster provisionning
 output "kubeconfig" {
   description = "Local kubeconfig path"
-  value       = module.kuberentes.kubeconfig_local_path
+  value       = module.kubernetes.kubeconfig_local_path
 }

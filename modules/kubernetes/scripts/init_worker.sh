@@ -34,10 +34,7 @@ sysctl --system
 # Containerd configuration
 mkdir -p /etc/containerd
 containerd config default > /etc/containerd/config.toml
-
-# Start services
-systemctl enable containerd kubelet
-systemctl start containerd kubelet
+systemctl restart containerd
 
 # --------------------------------
 # kubeadm
@@ -64,5 +61,9 @@ nodeRegistration:
 ---
 EOF
 
+# Start services
+systemctl enable containerd kubelet
+systemctl start containerd kubelet
+
 kubeadm reset --force
-kubeadm join --config /tmp/kubeadm.yaml
+kubeadm join --config /home/ubuntu/kubeadm.yaml
