@@ -231,7 +231,7 @@ data "aws_route53_zone" "bastion_zone" {
 
 resource "aws_route53_record" "bastion" {
   alias {
-    evaluate_target_health = false
+    evaluate_target_health = true
     name                   = aws_elb.bastion.dns_name
     zone_id                = aws_elb.bastion.zone_id
   }

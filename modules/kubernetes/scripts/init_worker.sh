@@ -6,8 +6,7 @@ set -o errexit
 set -o pipefail
 
 export KUBEADM_TOKEN=${kubeadm_token}
-export API_DNS="${api_dns}"
-export KUBERNETES_VERSION="1.20.1"
+export API_ELB_DNS="${api_elb_dns}"
 
 # Set this only after setting the defaults
 set -o nounset
@@ -30,6 +29,12 @@ net.ipv4.ip_forward                 = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 EOF
 
+sysctl --system
+
+# Containerd configuration
+mkdir -p /etc/containerd
+containerd config default > /etc/containerd/config.toml
+
 # Start services
 systemctl enable containerd kubelet
 systemctl start containerd kubelet
@@ -45,7 +50,7 @@ apiVersion: kubeadm.k8s.io/v1beta2
 kind: JoinConfiguration
 discovery:
   bootstrapToken:
-    apiServerEndpoint: $API_DNS:6443
+    apiServerEndpoint: $API_ELB_DNS:6443
     token: $KUBEADM_TOKEN
     unsafeSkipCAVerification: true
   timeout: 5m0s

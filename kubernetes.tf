@@ -5,7 +5,7 @@ module "kubernetes" {
   zones  = var.global.zones
 
   keypair_name = aws_key_pair.keypair.key_name
-  bastion_host = module.bastion.bastion_fqdn
+  bastion_host = module.bastion.bastion_cname_dns
   hosted_zone  = var.hosted_zone
 
   public_subnets  = module.vpc.public_subnets

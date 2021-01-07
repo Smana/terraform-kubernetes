@@ -47,13 +47,19 @@ output "api_dns" {
 }
 
 # Bastion DNS
-output "bastion_dns" {
+output "bastion_host" {
   description = "Bastion Load Balancer domain name"
-  value       = module.bastion.bastion_fqdn
+  value       = module.bastion.bastion_cname_dns
 }
 
-# Control plane first instance ID
+# Control plane IP addresses
 output "control-plane_private_ips" {
   description = "Control plane IP addresses"
   value       = module.kubernetes.control-plane_private_ips
+}
+
+# Kubeconfig generated locally after the cluster provisionning
+output "kubeconfig" {
+  description = "Local kubeconfig path"
+  value       = module.kuberentes.kubeconfig_local_path
 }

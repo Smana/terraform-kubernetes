@@ -8,7 +8,8 @@ set -o pipefail
 export REGION=${region}
 export SUBNETS="${subnets}"
 export CLUSTER_NAME=${cluster_name}
-export API_DNS="${api_dns}"
+export API_CNAME_DNS="${api_cname_dns}"
+export API_ELB_DNS="${api_elb_dns}"
 export CONTROL_PLANE_INDEX="${control_plane_index}"
 export KUBEADM_TOKEN=${kubeadm_token}
 export KUBERNETES_VERSION="1.20.1"
@@ -53,6 +54,9 @@ cat > /home/ubuntu/kubeadm.yaml <<EOF
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
+localAPIEndpoint:
+ advertiseAddress: {{ ds.meta_data.local_ipv4 }}
+ bindPort: 6443
 bootstrapTokens:
 - groups:
   - system:bootstrappers:kubeadm:default-node-token
@@ -73,9 +77,11 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
+controlPlaneEndpoint: '$API_ELB_DNS:6443'
 apiServer:
   certSANs:
-  - $API_DNS
+  - $API_CNAME_DNS
+  - $API_ELB_DNS
   - {{ ds.meta_data.local_ipv4}}
   - {{ ds.meta_data.hostname }}
   extraArgs:
@@ -95,9 +101,6 @@ imageRepository: k8s.gcr.io
 kubernetesVersion: v$KUBERNETES_VERSION
 networking:
   dnsDomain: cluster.local
-  podSubnet: 192.168.0.0/16
-  serviceSubnet: 10.96.0.0/12
-scheduler: {}
 ---
 EOF
 
@@ -105,7 +108,9 @@ EOF
 if [ $CONTROL_PLANE_INDEX -eq 0 ]; then
   kubeadm reset --force
   kubeadm init --skip-phases=addon/kube-proxy --config /home/ubuntu/kubeadm.yaml
+
   cp /etc/kubernetes/admin.conf /home/ubuntu && chown ubuntu /home/ubuntu/admin.conf
+  kubectl --kubeconfig /home/ubuntu/admin.conf config set-cluster kubernetes --server https://$API_CNAME_DNS:6443
 else
   echo "ha control plane"
 fi

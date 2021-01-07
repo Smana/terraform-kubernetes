@@ -25,8 +25,9 @@ resource "random_string" "token_secret" {
 
 /* local variables */
 locals {
-  tags  = merge(var.tags, { "kubernetes.io/cluster" = var.cluster.name })
-  token = "${random_string.token_id.result}.${random_string.token_secret.result}"
+  tags                  = merge(var.tags, { "kubernetes.io/cluster" = var.cluster.name })
+  token                 = "${random_string.token_id.result}.${random_string.token_secret.result}"
+  kubeconfig_local_path = format("%s/%s-kubecfg.yaml", path.root, var.cluster.name)
 }
 
 /* IAM */
@@ -108,7 +109,8 @@ data "template_file" "init_control-plane" {
     region              = var.region
     subnets             = join(" ", var.private_subnets)
     cluster_name        = var.cluster.name
-    api_dns             = aws_route53_record.k8s-api.fqdn
+    api_cname_dns       = aws_route53_record.k8s-api.fqdn
+    api_elb_dns         = aws_elb.k8s-api.dns_name
     control_plane_index = count.index
     kubeadm_token       = local.token
   }
@@ -219,7 +221,7 @@ resource "aws_elb" "k8s-api" {
   listener {
     instance_port      = 6443
     instance_protocol  = "TCP"
-    lb_port            = 443
+    lb_port            = 6443
     lb_protocol        = "TCP"
     ssl_certificate_id = ""
   }
@@ -235,7 +237,7 @@ data "template_file" "init_worker" {
 
   vars = {
     kubeadm_token = local.token
-    api_dns       = aws_elb.k8s-api.dns_name
+    api_elb_dns   = aws_elb.k8s-api.dns_name
   }
 }
 
@@ -307,6 +309,8 @@ resource "aws_autoscaling_group" "worker" {
   lifecycle {
     ignore_changes = [desired_capacity]
   }
+
+  depends_on = [null_resource.wait_for_kubeadm_init]
 }
 
 # ----------------------------------------
@@ -376,7 +380,7 @@ resource "aws_security_group_rule" "k8s-api-elb-egress" {
 }
 
 resource "aws_security_group_rule" "https-elb-to-api" {
-  from_port                = 443
+  from_port                = 6443
   protocol                 = "tcp"
   security_group_id        = aws_security_group.kubernetes.id
   source_security_group_id = aws_security_group.k8s-api-elb.id
@@ -386,10 +390,10 @@ resource "aws_security_group_rule" "https-elb-to-api" {
 
 resource "aws_security_group_rule" "https-ingress-to-k8s-api-elb-0-0-0-0--0" {
   cidr_blocks       = ["0.0.0.0/0"]
-  from_port         = 443
+  from_port         = 6443
   protocol          = "tcp"
   security_group_id = aws_security_group.k8s-api-elb.id
-  to_port           = 443
+  to_port           = 6443
   type              = "ingress"
 }
 
@@ -400,7 +404,7 @@ data "aws_route53_zone" "k8s_zone" {
 
 resource "aws_route53_record" "k8s-api" {
   alias {
-    evaluate_target_health = false
+    evaluate_target_health = true
     name                   = aws_elb.k8s-api.dns_name
     zone_id                = aws_elb.k8s-api.zone_id
   }
@@ -409,7 +413,7 @@ resource "aws_route53_record" "k8s-api" {
   zone_id = data.aws_route53_zone.k8s_zone.zone_id
 }
 
-resource "null_resource" "wait_for_kubeadm_cloud_init" {
+resource "null_resource" "wait_for_kubeadm_init" {
   connection {
     timeout = "10m"
     host    = aws_instance.control-plane[0].private_ip
@@ -424,6 +428,7 @@ resource "null_resource" "wait_for_kubeadm_cloud_init" {
       "cloud-init status --wait"
     ]
   }
+  depends_on = [aws_route53_record.k8s-api]
 }
 
 resource "null_resource" "download_kubeconfig" {
@@ -438,9 +443,9 @@ resource "null_resource" "download_kubeconfig" {
   }
 
   provisioner "local-exec" {
-    command = format("scp -J %s@%s %s@%s:/home/ubuntu/admin.conf %s/%s-kubecfg.yaml",
-    var.ssh_user, var.bastion_host, var.ssh_user, aws_instance.control-plane[0].private_ip, path.root, var.cluster.name)
+    command = format("scp -J %s@%s %s@%s:/home/ubuntu/admin.conf %s",
+    var.ssh_user, var.bastion_host, var.ssh_user, aws_instance.control-plane[0].private_ip, local.kubeconfig_local_path)
   }
 
-  depends_on = [null_resource.wait_for_kubeadm_cloud_init]
+  depends_on = [null_resource.wait_for_kubeadm_init]
 }
