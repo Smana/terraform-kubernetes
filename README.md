@@ -4,14 +4,6 @@ This module deploys a [Kubernetes](https://kubernetes.io/) cluster on AWS using 
 
 ![Kubernetes architecture](_docs/architecture.png)
 
-This repo has the following folder structure:
-
-* [modules](https://github.com/Smana/terraform-kubernetes/tree/main/modules): This folder contains a 'bastion' and a 'kubernetes' module.
-* [examples](https://github.com/Smana/terraform-kubernetes/tree/main/examples): TODO
-* [todo test](): Automated tests for the modules and examples.
-* [root folder](): The root folder is *an example* ...
-
-
 ## Requirements
 
 For control-plane high-availability a DNS zone is mandatory. The [kops documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns) describes in details the way to do so.
@@ -31,7 +23,9 @@ This is basically what I did:
 
 * Then configuring my registrar to forward the requests for the domain `cloud.smana.me` to the nameservers above.
 
-## How to use this Module
+## How to use the modules
+
+This repository contains a *bastion* and a *kubernetes* [module](https://github.com/Smana/terraform-kubernetes/tree/main/modules).
 
 When you apply this configuration you'll get a local **kubeconfig** in the root terraform directory.
 
