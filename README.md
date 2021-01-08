@@ -1,4 +1,4 @@
-# Terraform Kubernetes module
+# Terraform Kubernetes
 
 This module deploys a [Kubernetes](https://kubernetes.io/) cluster on AWS using [Kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/)
 
