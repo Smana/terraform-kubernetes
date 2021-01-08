@@ -449,3 +449,26 @@ resource "null_resource" "download_kubeconfig" {
 
   depends_on = [null_resource.wait_for_kubeadm_init]
 }
+
+resource "null_resource" "copy_certs" {
+  count = var.cluster.control_plane.count
+  connection {
+    timeout      = "10m"
+    host         = element(aws_instance.control-plane.*.private_ip, count.index)
+    user         = var.ssh_user
+    bastion_user = var.ssh_user
+    bastion_host = var.bastion_host
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /etc/kubernetes/pki",
+      format("sudo chown -R %s. /etc/kubernetes/pki", var.ssh_user)
+    ]
+  }
+
+  provisioner "file" {
+    source      = format("%s/pki/", path.module)
+    destination = "/etc/kubernetes/pki"
+  }
+}
