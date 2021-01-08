@@ -6,26 +6,17 @@ This module deploys a [Kubernetes](https://kubernetes.io/) cluster on AWS using 
 
 ## Requirements
 
-For control-plane high-availability a DNS zone is mandatory. The [kops documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns) describes in details the way to do so.
-This is basically what I did:
-
-* Creating a DNS zone and getting the nameservers
-
-  ```console
-  ID=$(uuidgen) && aws route53 create-hosted-zone --name cloud.smana.me --caller-reference $ID | jq .DelegationSet.NameServers
-  [
-    "ns-1502.awsdns-59.org",
-    "ns-608.awsdns-12.net",
-    "ns-224.awsdns-28.com",
-    "ns-1779.awsdns-30.co.uk"
-  ]
-  ```
-
-* Then configuring my registrar to forward the requests for the domain `cloud.smana.me` to the nameservers above.
+* A DNS zone. The [kops documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns) describes in details the way to do so.
+* Certificates for the Kubeadm High availability. [Here](modules/kubernetes/_docs/generate_certificates.md) is a documentation describing how to use cfssl but you could use any tool to generate two files (`ca.crt`, `ca.key`) in the directory `modules/kubernetes/pki`
 
 ## How to use the modules
 
-This repository contains a *bastion* and a *kubernetes* [module](https://github.com/Smana/terraform-kubernetes/tree/main/modules).
+This repository contains a _**bastion**_ and a _**kubernetes**_ [module](https://github.com/Smana/terraform-kubernetes/tree/main/modules).
+
+```console
+$ terraform init
+$ terraform apply
+```
 
 When you apply this configuration you'll get a local **kubeconfig** in the root terraform directory.
 
