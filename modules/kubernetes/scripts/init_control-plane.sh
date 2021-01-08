@@ -41,10 +41,6 @@ sysctl --system
 mkdir -p /etc/containerd
 containerd config default > /etc/containerd/config.toml
 
-# Restart containerd
-systemctl restart containerd
-systemctl enable containerd
-
 # --------------------------------
 # kubeadm
 # --------------------------------
@@ -104,6 +100,9 @@ networking:
 ---
 EOF
 
+# Start services
+systemctl enable containerd kubelet
+systemctl restart containerd kubelet
 
 if [ $CONTROL_PLANE_INDEX -eq 0 ]; then
   kubeadm reset --force
@@ -115,6 +114,4 @@ else
   echo "ha control plane"
 fi
 
-# Start services
-systemctl enable containerd kubelet
-systemctl start containerd kubelet
+

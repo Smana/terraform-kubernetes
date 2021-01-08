@@ -13,7 +13,7 @@ variable "keypair_name" {
 }
 
 variable "global" {
-  description = "TODO"
+  description = "Global values to identify the environment, location and tag resources"
   type = object({
     environment = string
     region      = string
@@ -22,12 +22,12 @@ variable "global" {
 }
 
 variable "tags" {
-  description = "TODO"
+  description = "Default tags to apply to all resources"
   type        = object({})
 }
 
 variable "vpc" {
-  description = "TODO"
+  description = "VPC configuration, subnet details"
   type = object({
     vpc_name        = string
     vpc_cidr        = string

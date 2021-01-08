@@ -63,7 +63,7 @@ EOF
 
 # Start services
 systemctl enable containerd kubelet
-systemctl start containerd kubelet
+systemctl restart containerd kubelet
 
 kubeadm reset --force
 kubeadm join --config /home/ubuntu/kubeadm.yaml
