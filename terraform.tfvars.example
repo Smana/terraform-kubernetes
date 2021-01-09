@@ -13,7 +13,8 @@ tags = {}
 cluster = {
     name = "smana"
     control_plane = {
-      count = 2
+      # Minimum of 3 nodes for HA, otherwise keep 1
+      count = 1
       instance_type = "t2.medium"
     }
     worker = {

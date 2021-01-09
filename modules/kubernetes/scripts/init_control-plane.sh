@@ -17,27 +17,6 @@ export KUBERNETES_VERSION="1.20.1"
 # Set this only after setting the defaults
 set -o nounset
 
-
-function wait_for_file()
-{
-    local RETRIES=12
-    local ATTEMPT=0
-    local SLEEP=2
-
-    until [ $ATTEMPT -eq $RETRIES ]; do
-      if [ ! -f $1 ]; then
-        echo "warning: file $1 not present, waiting ..."
-        sleep $SLEEP
-        ((ATTEMPT++))
-      else
-        return 0
-      fi
-    done
-    echo "error: the file $1 not found !"
-    exit 1
-}
-
-
 # --------------------------------
 # containerd
 # --------------------------------
@@ -69,8 +48,6 @@ containerd config default > /etc/containerd/config.toml
 # Start services
 systemctl enable containerd kubelet
 systemctl restart containerd kubelet
-
-wait_for_file /etc/kubernetes/pki/ca.crt
 
 if [ $CONTROL_PLANE_INDEX -eq 0 ]; then
 # kubedm configuration
@@ -128,7 +105,7 @@ networking:
 ---
 EOF
   kubeadm reset --force
-  kubeadm init --skip-phases=addon/kube-proxy --config /home/ubuntu/kubeadm.yaml
+  kubeadm init --skip-phases=addon/kube-proxy --upload-certs --config /home/ubuntu/kubeadm.yaml
 
   cp /etc/kubernetes/admin.conf /home/ubuntu && chown ubuntu /home/ubuntu/admin.conf
   kubectl --kubeconfig /home/ubuntu/admin.conf config set-cluster kubernetes --server https://$API_CNAME_DNS:6443

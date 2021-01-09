@@ -32,9 +32,32 @@ ip-10-0-1-129.eu-west-3.compute.internal   NotReady   control-plane,master   2m3
 ip-10-0-2-55.eu-west-3.compute.internal    NotReady   <none>                 58s     v1.20.1
 ```
 
-## What's next
+## Post-apply actions
 
-Please read the kubernetes module's [documentation](modules/kubernetes/README.md)
+### CNI Plugin
+
+* The cluster has been provision without `kube-proxy` that means that it is meant to be used with **Cilium**.
+* I tried to use the Helm provider but I'm not sure this is actually useful as I want to use a GitOps tool for apps deployment. Currently, I decided to run the Helm command using the CLI for the CNI plugin.
+* **Warning** about the pod CIDR, it must be different from the subnets you use within your VPC
+
+Here is an example of a Helm command that installs Cilium with kube-proxy replacement.
+
+```console
+$ helm upgrade --install cilium cilium/cilium --version 1.9.1 --namespace kube-system \
+--set kubeProxyReplacement='strict' \
+--set k8sServiceHost=$(terraform output -json | jq -r '.api_dns.value'),k8sServicePort='6443' \
+--set ipam.operator.clusterPoolIPv4PodCIDR="172.16.0.0/12"
+```
+
+
+### Additional control-planes for high availablity
+
+**Note:** We use here a [stacked etcd topology](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/#stacked-etcd-topology). That means that the minimum of control plane instances for HA is 3.
+
+```console
+$ BASTION=$(terraform output -json | jq -r '.bastion_host.value')
+$
+```
 
 ## License
 
