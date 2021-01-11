@@ -47,7 +47,26 @@ $ helm upgrade --install cilium cilium/cilium --version 1.9.1 --namespace kube-s
 --set kubeProxyReplacement='strict' \
 --set k8sServiceHost=$(terraform output -json | jq -r '.api_dns.value'),k8sServicePort='6443' \
 --set ipam.operator.clusterPoolIPv4PodCIDR="172.16.0.0/12"
+
+$ watch kubectl get po -n kube-system
 ```
+
+```console
+Every 2.0s: kubectl get po -n kube-system                                                                                                                                                                                                                                                   dm-smana: Sat Jan  9 16:01:58 2021
+
+NAME                                                               READY   STATUS    RESTARTS   AGE
+cilium-bmgc7                                                       1/1     Running   0          61s
+cilium-operator-66c94d747c-j2nwc                                   1/1     Running   0          61s
+cilium-operator-66c94d747c-v9n22                                   1/1     Running   0          61s
+cilium-qhdjb                                                       1/1     Running   0          61s
+coredns-74ff55c5b-grwk8                                            1/1     Running   0          6m5s
+coredns-74ff55c5b-j7n9s                                            1/1     Running   0          6m5s
+etcd-ip-10-0-1-169.eu-west-3.compute.internal                      1/1     Running   0          5m59s
+kube-apiserver-ip-10-0-1-169.eu-west-3.compute.internal            1/1     Running   0          5m59s
+kube-controller-manager-ip-10-0-1-169.eu-west-3.compute.internal   1/1     Running   0          5m59s
+kube-scheduler-ip-10-0-1-169.eu-west-3.compute.internal            1/1     Running   0          5m59s
+```
+
 
 
 ### Additional control-planes for high availablity

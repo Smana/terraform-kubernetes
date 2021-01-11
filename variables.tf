@@ -87,3 +87,11 @@ variable "bastion" {
     })
   })
 }
+
+variable "etcd" {
+  type = object({
+    name          = string
+    members_count = number
+    instance_type = string
+  })
+}
