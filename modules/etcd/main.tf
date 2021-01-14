@@ -54,7 +54,6 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-/* etcd instance */
 data "template_file" "init_etcd" {
   count    = var.members_count
   template = file(format("%v/userdata/init_etcd.sh", path.module))
@@ -137,28 +136,37 @@ data "aws_instances" "etcd" {
   }
 }
 
-resource "null_resource" "copy_certs" {
-  count = var.members_count
-  connection {
-    timeout      = "10m"
-    host         = element(aws_instance.etcd.*.private_ip, count.index)
-    user         = var.ssh_user
-    bastion_user = var.ssh_user
-    bastion_host = var.bastion_host
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo mkdir -p /etc/etcd/pki",
-      format("sudo chown -R %s. /etc/etcd", var.ssh_user)
-    ]
-  }
-
-  provisioner "file" {
-    source      = format("%s/pki/", path.module)
-    destination = "/etc/etcd/pki"
-  }
+/* DNS */
+data "aws_route53_zone" "dns_zone" {
+  name = format("%s.", var.hosted_zone)
 }
+
+resource "aws_route53_record" "etcd" {
+  count   = var.members_count
+  name    = format("%s-%s-%s", local.prefix, "etcd", count.index)
+  type    = "A"
+  ttl     = "300"
+  records = [element(aws_instance.etcd.*.private_ip, count.index)]
+  zone_id = data.aws_route53_zone.dns_zone.zone_id
+}
+resource "aws_route53_record" "etcd_discovery_ssl" {
+  count = var.members_count
+  name  = format("_etcd-server-ssl._tcp.%s", var.hosted_zone)
+  type  = "SRV"
+  ttl   = "300"
+  records = concat(
+    [
+      for i in range(var.members_count) : format("0 0 2379 %s-%s-%s-%s.", local.prefix, "etcd", i, var.hosted_zone)
+    ],
+    [
+      for i in range(var.members_count) : format("0 0 2380 %s-%s-%s-%s.", local.prefix, "etcd", i, var.hosted_zone)
+    ]
+  )
+  zone_id = data.aws_route53_zone.dns_zone.zone_id
+}
+
+
+/* Security groups */
 
 resource "aws_security_group" "etcd" {
   description = "Security group for the etcd cluster"
@@ -173,16 +181,6 @@ resource "aws_security_group_rule" "allow_all_outbound_from_instances" {
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.etcd.id
-}
-
-# Allow SSH connections from given CIDR
-resource "aws_security_group_rule" "ingress_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.etcd.id
 }

@@ -24,8 +24,8 @@ variable "ssh_user" {
   default     = "ubuntu"
 }
 
-variable "bastion_host" {
-  description = "Bastion Host"
+variable "hosted_zone" {
+  description = "Hosted zone to be used for the alias"
 }
 
 variable "tags" {
@@ -44,7 +44,12 @@ variable "members_count" {
 }
 
 variable "instance_type" {
-  description = "value"
+  description = "AWS instance type"
   type        = string
   default     = "m4.large"
+}
+
+variable "ca_certificate_content" {
+  description = "CA certificate content"
+  type        = string
 }

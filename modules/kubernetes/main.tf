@@ -397,7 +397,7 @@ resource "aws_security_group_rule" "https-ingress-to-k8s-api-elb-0-0-0-0--0" {
   type              = "ingress"
 }
 
-/* DNS record */
+/* DNS */
 data "aws_route53_zone" "k8s_zone" {
   name = format("%s.", var.hosted_zone)
 }
@@ -415,13 +415,11 @@ resource "aws_route53_record" "k8s-api" {
 
 resource "null_resource" "wait_for_kubeadm_init" {
   connection {
-    timeout = "10m"
-    host    = aws_instance.control-plane[0].private_ip
-    user    = var.ssh_user
-    #private_key         = var.ssh_private_key
+    timeout      = "10m"
+    host         = aws_instance.control-plane[0].private_ip
+    user         = var.ssh_user
     bastion_user = var.ssh_user
     bastion_host = var.bastion_host
-    #bastion_private_key = var.bastion_private_key
   }
   provisioner "remote-exec" {
     inline = [

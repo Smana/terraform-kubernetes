@@ -34,3 +34,8 @@ output "bastion_host" {
 #   description = "Local kubeconfig path"
 #   value       = module.kubernetes.kubeconfig_local_path
 # }
+
+output "certificates" {
+  value     = module.tls.certificates
+  sensitive = true
+}

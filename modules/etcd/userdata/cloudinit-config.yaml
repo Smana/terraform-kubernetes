@@ -4,6 +4,3 @@ datasource:
     max_wait: 120
     timeout: 50
     apply_full_imds_network_config: true
-
-packages:
-  - "awscli"
