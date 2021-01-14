@@ -19,10 +19,13 @@ variable "tags" {
 variable "admin_role_arns" {
   description = "Amazon Resource Names for admin"
   type        = list(string)
+  default     = []
 }
+
 variable "user_role_arns" {
   description = "Amazon Resource Names for users (Read Only)"
   type        = list(string)
+  default     = []
 }
 
 variable "kms" {
@@ -51,7 +54,7 @@ variable "ca" {
   default = {
     common_name           = "foobar"
     organization          = "mycompany"
-    validity_period_hours = 17520 # 3 years
+    validity_period_hours = 17520 # 2 years
     early_renewal_hours   = 360   # 15 days
   }
 }

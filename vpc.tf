@@ -15,7 +15,7 @@ module "vpc" {
   single_nat_gateway = true
 
   tags = {
-    Terraform   = "true"
-    Environment = var.global.environment
+    Terraform = "true"
+    Stage     = var.global.stage
   }
 }

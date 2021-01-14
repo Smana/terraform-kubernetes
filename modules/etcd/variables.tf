@@ -1,5 +1,10 @@
-variable "name" {
-  description = "Prefix for the etcd cluster"
+variable "namespace" {
+  description = "Namespace which could be your organization name or an abbreviation"
+  type        = string
+  default     = null
+}
+variable "stage" {
+  description = "Stage, e.g. 'prod', 'staging', 'dev'"
   type        = string
   default     = null
 }
@@ -49,7 +54,22 @@ variable "instance_type" {
   default     = "m4.large"
 }
 
-variable "ca_certificate_content" {
-  description = "CA certificate content"
-  type        = string
+variable "tls" {
+  description = "Settings used to generate TLS certificates"
+  type = object({
+    ca_common_name              = string
+    ca_organization             = string
+    ca_validity_period_hours    = number
+    ca_early_renewal_hours      = number
+    certs_validity_period_hours = number
+    certs_early_renewal_hours   = number
+  })
+  default = {
+    ca_common_name              = "Etcd CA"
+    ca_organization             = "Corp"
+    ca_validity_period_hours    = 17520
+    ca_early_renewal_hours      = 360
+    certs_validity_period_hours = 17520
+    certs_early_renewal_hours   = 360
+  }
 }

@@ -13,11 +13,12 @@ variable "keypair_name" {
 }
 
 variable "global" {
-  description = "Global values to identify the environment, location and tag resources"
+  description = "Global values to identify the stage (e.g. 'dev', 'staging'), location and tag resources"
   type = object({
-    environment = string
-    region      = string
-    zones       = list(string)
+    stage     = string
+    namespace = string
+    region    = string
+    zones     = list(string)
   })
 }
 

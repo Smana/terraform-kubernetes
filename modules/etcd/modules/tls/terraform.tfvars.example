@@ -1,0 +1,75 @@
+label {
+  namespace = "corp"
+  name = "myTLS"
+  stage = "dev"
+}
+
+tags = {
+  Application = "app1"
+}
+
+kms = {
+  deletion_window_in_days = 7
+  admin_role_arns = ["arn::...:admin1", "arn::...:admin2"]
+}
+variable "kms" {
+  type = object({
+    deletion_window_in_days = number
+    enable_key_rotation     = bool
+    admin_role_arns         = list(string)
+    user_role_arns          = list(string)
+  })
+  default = {
+    deletion_window_in_days = 30
+    enable_key_rotation     = false
+    admin_role_arns         = []
+    user_role_arns          = []
+  }
+}
+
+variable "s3" {
+  type = object({
+    bucket_name = string
+  })
+  default = {
+    bucket_name = "mybucket"
+  }
+}
+
+variable "ca" {
+  type = object({
+    common_name           = string
+    organization          = string
+    validity_period_hours = number
+    early_renewal_hours   = number
+  })
+  default = {
+    common_name           = "foobar"
+    organization          = "mycompany"
+    validity_period_hours = 17520 # 3 years
+    early_renewal_hours   = 360   # 15 days
+  }
+}
+
+variable "certs" {
+  type = list(object({
+    common_name           = string
+    ip_addresses          = list(string)
+    uris                  = list(string)
+    dns_names             = list(string)
+    allowed_uses          = list(string)
+    validity_period_hours = number
+    early_renewal_hours   = number
+  }))
+  default = [
+    {
+      common_name           = "tlsexample"
+      ip_addresses          = ["10.42.42.42"]
+      uris                  = ["https://example.tld"]
+      dns_names             = ["example.tld"]
+      allowed_uses          = ["server_auth", "client_auth"]
+      validity_period_hours = 17520 # 3 years
+      early_renewal_hours   = 360   # 15 days
+    }
+  ]
+}

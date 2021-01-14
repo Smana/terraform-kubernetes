@@ -1,3 +1,12 @@
+module "label" {
+  source    = "cloudposse/label/terraform"
+  version   = "v0.5.1"
+  namespace = var.namespace
+  stage     = var.stage
+  name      = "etcd"
+  tags      = var.tags
+}
+
 /* Retrieve AWS credentials from env variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY */
 provider "aws" {
   region = var.region
@@ -8,12 +17,6 @@ data "aws_subnet" "etcd" {
   id = element(var.subnet_ids, 0)
 }
 
-resource "random_pet" "prefix" {}
-
-locals {
-  prefix = var.name != null ? var.name : random_pet.prefix.id
-}
-
 /* IAM */
 data "template_file" "etcd_policy_json" {
   template = file(format("%v/iam/etcd-policy.json.tpl", path.module))
@@ -21,25 +24,25 @@ data "template_file" "etcd_policy_json" {
 }
 
 resource "aws_iam_policy" "etcd_policy" {
-  name        = format("%v-etcd", local.prefix)
+  name        = module.label.id
   path        = "/"
-  description = "Policy for role ${local.prefix}-etcd"
+  description = "Policy for role etcd"
   policy      = data.template_file.etcd_policy_json.rendered
 }
 
 resource "aws_iam_role" "etcd_role" {
-  name               = format("%v-etcd", local.prefix)
+  name               = module.label.id
   assume_role_policy = file("${path.module}/iam/assume-role.json")
 }
 
 resource "aws_iam_policy_attachment" "etcd-attach" {
-  name       = "etcd-attachment"
+  name       = module.label.id
   roles      = [aws_iam_role.etcd_role.name]
   policy_arn = aws_iam_policy.etcd_policy.arn
 }
 
 resource "aws_iam_instance_profile" "etcd_profile" {
-  name = format("%v-etcd", local.prefix)
+  name = module.label.id
   role = aws_iam_role.etcd_role.name
 }
 
@@ -103,12 +106,12 @@ resource "aws_instance" "etcd" {
 
   tags = merge(
     {
-      "Name" = join("-", [local.prefix, "etcd", count.index])
+      "Name" = join("-", [module.label.id, count.index])
     },
     {
-      "Role" = join("-", [local.prefix, "etcd"])
+      "Role" = module.label.id
     },
-    var.tags,
+    module.label.tags,
   )
 
   root_block_device {
@@ -127,7 +130,7 @@ resource "aws_instance" "etcd" {
 
 data "aws_instances" "etcd" {
   instance_tags = {
-    "Role" = join("-", [local.prefix, "etcd"])
+    "Role" = module.label.id
   }
 
   filter {
@@ -143,7 +146,7 @@ data "aws_route53_zone" "dns_zone" {
 
 resource "aws_route53_record" "etcd" {
   count   = var.members_count
-  name    = format("%s-%s-%s", local.prefix, "etcd", count.index)
+  name    = format("%s-%s-%s.%s.", module.label.namespace, module.label.name, count.index, var.hosted_zone)
   type    = "A"
   ttl     = "300"
   records = [element(aws_instance.etcd.*.private_ip, count.index)]
@@ -156,10 +159,10 @@ resource "aws_route53_record" "etcd_discovery_ssl" {
   ttl   = "300"
   records = concat(
     [
-      for i in range(var.members_count) : format("0 0 2379 %s-%s-%s-%s.", local.prefix, "etcd", i, var.hosted_zone)
+      for i in range(var.members_count) : format("0 0 2379 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
     ],
     [
-      for i in range(var.members_count) : format("0 0 2380 %s-%s-%s-%s.", local.prefix, "etcd", i, var.hosted_zone)
+      for i in range(var.members_count) : format("0 0 2380 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
     ]
   )
   zone_id = data.aws_route53_zone.dns_zone.zone_id
@@ -170,8 +173,8 @@ resource "aws_route53_record" "etcd_discovery_ssl" {
 
 resource "aws_security_group" "etcd" {
   description = "Security group for the etcd cluster"
-  name        = format("%v-etcd", local.prefix)
-  tags        = var.tags
+  name        = module.label.id
+  tags        = module.label.tags
   vpc_id      = data.aws_subnet.etcd.vpc_id
 }
 
