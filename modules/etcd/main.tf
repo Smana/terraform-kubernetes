@@ -67,8 +67,14 @@ data "template_file" "init_etcd" {
 }
 
 data "template_file" "cloud_init_config" {
+  count    = var.members_count
   template = file(format("%v/userdata/cloudinit-config.yaml", path.module))
-  vars     = {}
+  vars = {
+    domain_name        = var.hosted_zone
+    namespace          = module.label.namespace
+    member_name        = format("member-%s", count.index)
+    member_domain_name = format("%s-%s-%s.%s", module.label.namespace, module.label.name, count.index, var.hosted_zone)
+  }
 }
 
 data "template_cloudinit_config" "etcd_cloud_init" {
@@ -79,7 +85,7 @@ data "template_cloudinit_config" "etcd_cloud_init" {
   part {
     filename     = "cloud-init-config.yaml"
     content_type = "text/cloud-config"
-    content      = data.template_file.cloud_init_config.rendered
+    content      = element(data.template_file.cloud_init_config.*.rendered, count.index)
   }
 
   part {
@@ -153,10 +159,9 @@ resource "aws_route53_record" "etcd" {
   zone_id = data.aws_route53_zone.dns_zone.zone_id
 }
 resource "aws_route53_record" "etcd_discovery_ssl" {
-  count = var.members_count
-  name  = format("_etcd-server-ssl._tcp.%s", var.hosted_zone)
-  type  = "SRV"
-  ttl   = "300"
+  name = format("_etcd-server-ssl._tcp.%s", var.hosted_zone)
+  type = "SRV"
+  ttl  = "300"
   records = concat(
     [
       for i in range(var.members_count) : format("0 0 2379 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
@@ -166,6 +171,37 @@ resource "aws_route53_record" "etcd_discovery_ssl" {
     ]
   )
   zone_id = data.aws_route53_zone.dns_zone.zone_id
+}
+
+resource "null_resource" "write_tls" {
+  count = var.members_count
+  connection {
+    timeout      = "10m"
+    host         = element(aws_instance.etcd.*.private_ip, count.index)
+    user         = var.ssh_user
+    bastion_user = var.ssh_user
+    bastion_host = var.bastion_host
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /etc/etcd/tls",
+      format("sudo chown -R %s. /etc/etcd", var.ssh_user)
+    ]
+  }
+
+  provisioner "file" {
+    content     = module.tls.tls_certs[format("%s-%s-%s.%s", module.label.namespace, module.label.name, count.index, var.hosted_zone)]
+    destination = "/etc/etcd/tls/tls.pem"
+  }
+  provisioner "file" {
+    content     = module.tls.tls_keys[format("%s-%s-%s.%s", module.label.namespace, module.label.name, count.index, var.hosted_zone)]
+    destination = "/etc/etcd/tls/tls.key"
+  }
+  provisioner "file" {
+    content     = module.tls.ca_cert_pem
+    destination = "/etc/etcd/tls/ca.pem"
+  }
 }
 
 
@@ -184,6 +220,16 @@ resource "aws_security_group_rule" "allow_all_outbound_from_instances" {
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.etcd.id
+}
+
+# Allow SSH connections from given CIDR
+resource "aws_security_group_rule" "ingress_ssh" {
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.etcd.id
 }

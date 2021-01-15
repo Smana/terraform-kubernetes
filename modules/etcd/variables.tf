@@ -24,6 +24,10 @@ variable "keypair_name" {
   type        = string
 }
 
+variable "bastion_host" {
+  description = "Bastion Host"
+}
+
 variable "ssh_user" {
   description = "Username for SSH connections through the bastion"
   default     = "ubuntu"
@@ -72,4 +76,22 @@ variable "tls" {
     certs_validity_period_hours = 17520
     certs_early_renewal_hours   = 360
   }
+}
+
+variable "ca_cert_pem" {
+  description = "value"
+  type        = string
+  default     = null
+}
+
+variable "tls_certs" {
+  description = "value"
+  type        = map(any)
+  default     = {}
+}
+
+variable "tls_keys" {
+  description = "value"
+  type        = map(any)
+  default     = {}
 }

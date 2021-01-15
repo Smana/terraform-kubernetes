@@ -42,14 +42,31 @@ output "ca_private_key_pem" {
   sensitive = true
 }
 
-output "certificates" {
-  value = [
+output "tls_certs" {
+  description = "TLS certificates for etcd members"
+  value = {
     for idx, cert in var.certs :
-    map(
-      "name", cert.common_name,
-      "tls.pem", tls_locally_signed_cert.certs[idx].cert_pem,
-      "tls.key", tls_private_key.certs[idx].private_key_pem
-    )
-  ]
-  sensitive = true
+    cert.common_name => tls_locally_signed_cert.certs[idx].cert_pem
+  }
 }
+
+output "tls_keys" {
+  description = "TLS keys for etcd members"
+  value = {
+    for idx, cert in var.certs :
+    cert.common_name => tls_private_key.certs[idx].private_key_pem
+  }
+}
+
+# output "certificates" {
+#   value = [
+#     for idx, cert in var.certs :
+#     {
+#       (cert.common_name) = {
+#         "tls.pem" = tls_locally_signed_cert.certs[idx].cert_pem
+#         "tls.key" = tls_private_key.certs[idx].private_key_pem
+#       }
+#     }
+#   ]
+#   # sensitive = true
+# }

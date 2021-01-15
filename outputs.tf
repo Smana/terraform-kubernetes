@@ -34,3 +34,13 @@ output "bastion_host" {
 #   description = "Local kubeconfig path"
 #   value       = module.kubernetes.kubeconfig_local_path
 # }
+
+# output "tls_certs" {
+#   value = module.etcd.tls_certs
+#   # sensitive = true
+# }
+
+# output "tls_keys" {
+#   value = module.etcd.tls_keys
+#   # sensitive = true
+# }

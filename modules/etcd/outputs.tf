@@ -3,7 +3,12 @@ output "etcd_ips" {
   value       = data.aws_instances.etcd.private_ips
 }
 
-output "certificates" {
-  value     = module.tls.certificates
-  sensitive = true
-}
+# output "tls_certs" {
+#   value = module.tls.tls_certs
+#   # sensitive = true
+# }
+
+# output "tls_keys" {
+#   value = module.tls.tls_keys
+#   # sensitive = true
+# }
