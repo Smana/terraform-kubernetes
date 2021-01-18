@@ -5,50 +5,56 @@ datasource:
     timeout: 50
     apply_full_imds_network_config: true
 
-users:
- - name: etcd
-   gecos: etcd
-   groups: etcd
-   shell: /bin/false
-   homedir: /var/lib/etcd
-   lock-passwd: true
+# TODO: Adding users and groups through cloud-init causes SSH to be rejected with the default user 'ubuntu'
 
-write-files:
-  - path: /lib/system/systemd/etcd.service
-    owner: etcd
-    permissions: "0640"
-    content: |
-      [Unit]
-      Description=etcd key-value store
-      Documentation=https://github.com/etcd-io/etcd
-      User=etcd
-      Group=etcd
-      After=network.target
+# groups:
+#   - etcd
 
-      [Service]
-      Type=notify
-      EnvironmentFile=/etc/etcd/etcd.conf
-      ExecStart=/usr/bin/etcd --discovery-srv ${domain_name}
-      Restart=always
-      RestartSec=10s
-      LimitNOFILE=40000
+# users:
+#   - default
+#   - name: etcd
+#     gecos: etcd
+#     groups: etcd
+#     shell: /bin/false
+#     homedir: /var/lib/etcd
+#     lock-passwd: true
 
-      [Install]
-      WantedBy=multi-user.target
-  - path: /etc/etcd/etcd.conf
-    owner: etcd
-    permissions: "0640"
-    content: |
-      ETCD_NAME=${member_name}
-      ETCD_LISTEN_PEER_URLS="https://0.0.0.0:2380"
-      ETCD_LISTEN_CLIENT_URLS="https://0.0.0.0:2379"
-      ETCD_INITIAL_CLUSTER_TOKEN="${namespace}-etcd-cluster"
-      ETCD_INITIAL_ADVERTISE_PEER_URLS="https://${member_domain_name}:2380"
-      ETCD_ADVERTISE_CLIENT_URLS="https://${member_domain_name}:2379"
-      ETCD_TRUSTED_CA_FILE="/etc/etcd/tls/ca.pem"
-      ETCD_CERT_FILE="/etc/etcd/tls/tls.pem"
-      ETCD_KEY_FILE="/etc/etcd/tls/tls.key"
-      ETCD_PEER_TRUSTED_CA_FILE="/etc/etcd/tls/ca.pem"
-      ETCD_PEER_KEY_FILE="/etc/etcd/tls/tls.key"
-      ETCD_PEER_CERT_FILE="/etc/etcd/tls/tls.pem"
-      ETCD_DATA_DIR="/var/lib/etcd"
+# write_files:
+#   - path: /lib/system/systemd/etcd.service
+#     owner: etcd
+#     permissions: "0640"
+#     content: |
+#       [Unit]
+#       Description=etcd key-value store
+#       Documentation=https://github.com/etcd-io/etcd
+#       User=etcd
+#       Group=etcd
+#       After=network.target
+
+#       [Service]
+#       Type=notify
+#       EnvironmentFile=/etc/etcd/etcd.conf
+#       ExecStart=/usr/bin/etcd --discovery-srv
+#       Restart=always
+#       RestartSec=10s
+#       LimitNOFILE=40000
+
+#       [Install]
+#       WantedBy=multi-user.target
+#   - path: /etc/etcd/etcd.conf
+#     owner: etcd
+#     permissions: "0640"
+#     content: |
+#       ETCD_NAME=
+#       ETCD_LISTEN_PEER_URLS="https://0.0.0.0:2380"
+#       ETCD_LISTEN_CLIENT_URLS="https://0.0.0.0:2379"
+#       ETCD_INITIAL_CLUSTER_TOKEN="-etcd-cluster"
+#       ETCD_INITIAL_ADVERTISE_PEER_URLS="https://:2380"
+#       ETCD_ADVERTISE_CLIENT_URLS="https://:2379"
+#       ETCD_TRUSTED_CA_FILE="/etc/etcd/tls/ca.pem"
+#       ETCD_CERT_FILE="/etc/etcd/tls/tls.pem"
+#       ETCD_KEY_FILE="/etc/etcd/tls/tls.key"
+#       ETCD_PEER_TRUSTED_CA_FILE="/etc/etcd/tls/ca.pem"
+#       ETCD_PEER_KEY_FILE="/etc/etcd/tls/tls.key"
+#       ETCD_PEER_CERT_FILE="/etc/etcd/tls/tls.pem"
+#       ETCD_DATA_DIR="/var/lib/etcd"

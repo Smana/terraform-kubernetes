@@ -62,19 +62,18 @@ data "template_file" "init_etcd" {
   template = file(format("%v/userdata/init_etcd.sh", path.module))
 
   vars = {
-    etcd_index = count.index
+    etcd_index         = count.index
+    domain_name        = var.hosted_zone
+    namespace          = module.label.namespace
+    member_name        = format("member-%s", count.index)
+    member_domain_name = format("%s-%s-%s.%s", module.label.namespace, module.label.name, count.index, var.hosted_zone)
   }
 }
 
 data "template_file" "cloud_init_config" {
   count    = var.members_count
   template = file(format("%v/userdata/cloudinit-config.yaml", path.module))
-  vars = {
-    domain_name        = var.hosted_zone
-    namespace          = module.label.namespace
-    member_name        = format("member-%s", count.index)
-    member_domain_name = format("%s-%s-%s.%s", module.label.namespace, module.label.name, count.index, var.hosted_zone)
-  }
+  vars     = {}
 }
 
 data "template_cloudinit_config" "etcd_cloud_init" {
@@ -158,20 +157,26 @@ resource "aws_route53_record" "etcd" {
   records = [element(aws_instance.etcd.*.private_ip, count.index)]
   zone_id = data.aws_route53_zone.dns_zone.zone_id
 }
-resource "aws_route53_record" "etcd_discovery_ssl" {
+resource "aws_route53_record" "etcd_discovery_ssl_server" {
   name = format("_etcd-server-ssl._tcp.%s", var.hosted_zone)
   type = "SRV"
   ttl  = "300"
-  records = concat(
-    [
-      for i in range(var.members_count) : format("0 0 2379 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
-    ],
-    [
-      for i in range(var.members_count) : format("0 0 2380 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
-    ]
-  )
+  records = [
+    for i in range(var.members_count) : format("0 0 2380 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
+  ]
   zone_id = data.aws_route53_zone.dns_zone.zone_id
 }
+
+resource "aws_route53_record" "etcd_discovery_ssl_client" {
+  name = format("_etcd-client-ssl._tcp.%s", var.hosted_zone)
+  type = "SRV"
+  ttl  = "300"
+  records = [
+    for i in range(var.members_count) : format("0 0 2379 %s-%s-%s.%s.", module.label.namespace, module.label.name, i, var.hosted_zone)
+  ]
+  zone_id = data.aws_route53_zone.dns_zone.zone_id
+}
+
 
 resource "null_resource" "write_tls" {
   count = var.members_count

@@ -56,17 +56,5 @@ output "tls_keys" {
     for idx, cert in var.certs :
     cert.common_name => tls_private_key.certs[idx].private_key_pem
   }
+  sensitive = true
 }
-
-# output "certificates" {
-#   value = [
-#     for idx, cert in var.certs :
-#     {
-#       (cert.common_name) = {
-#         "tls.pem" = tls_locally_signed_cert.certs[idx].cert_pem
-#         "tls.key" = tls_private_key.certs[idx].private_key_pem
-#       }
-#     }
-#   ]
-#   # sensitive = true
-# }

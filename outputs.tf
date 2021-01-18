@@ -12,10 +12,10 @@ output "etcd_ips" {
 }
 
 # Kubernetes API DNS
-# output "api_dns" {
-#   description = "Kubernetes API Load Balancer domain name"
-#   value       = module.kubernetes.api_dns
-# }
+output "api_dns" {
+  description = "Kubernetes API Load Balancer domain name"
+  value       = module.kubernetes.api_dns
+}
 
 # Bastion DNS
 output "bastion_host" {
@@ -24,23 +24,13 @@ output "bastion_host" {
 }
 
 # # Control plane IP addresses
-# output "control_plane_ips" {
-#   description = "Control plane IP addresses"
-#   value       = module.kubernetes.control_plane_ips
-# }
+output "control_plane_ips" {
+  description = "Control plane IP addresses"
+  value       = module.kubernetes.control_plane_ips
+}
 
 # # Kubeconfig generated locally after the cluster provisionning
-# output "kubeconfig" {
-#   description = "Local kubeconfig path"
-#   value       = module.kubernetes.kubeconfig_local_path
-# }
-
-# output "tls_certs" {
-#   value = module.etcd.tls_certs
-#   # sensitive = true
-# }
-
-# output "tls_keys" {
-#   value = module.etcd.tls_keys
-#   # sensitive = true
-# }
+output "kubeconfig" {
+  description = "Local kubeconfig path"
+  value       = module.kubernetes.kubeconfig_local_path
+}
