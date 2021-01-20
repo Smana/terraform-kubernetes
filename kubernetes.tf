@@ -37,5 +37,11 @@ module "kubernetes" {
     api = ["0.0.0.0/0"]
   }
 
+  etcd_client_cert       = module.etcd.tls_certs[format("%s-etcd-client.%s", var.global.namespace, var.hosted_zone)]
+  etcd_client_key        = module.etcd.tls_keys[format("%s-etcd-client.%s", var.global.namespace, var.hosted_zone)]
+  etcd_ca_cert           = module.etcd.ca_cert_pem
+  etcd_ips               = join(" ", module.etcd.etcd_ips)
+  etcd_security_group_id = module.etcd.etcd_security_group_id
+
   tags = var.tags
 }

@@ -21,3 +21,21 @@ packages:
   - [kubelet, 1.20.1-00]
   - [kubeadm, 1.20.1-00]
   - [kubectl, 1.20.1-00]
+
+
+write_files:
+- encoding: gz+b64
+  content: ${etcd_client_cert}
+  owner: root:root
+  path: /etc/etcd/tls/etcd-client-tls.pem
+  permissions: '0660'
+- encoding: gz+b64
+  content: ${etcd_client_key}
+  owner: root:root
+  path: /etc/etcd/tls/etcd-client-tls.key
+  permissions: '0660'
+- encoding: gz+b64
+  content: ${etcd_ca_cert}
+  owner: root:root
+  path: /etc/etcd/tls/etcd-ca.pem
+  permissions: '0660'

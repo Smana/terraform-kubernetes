@@ -1,0 +1,22 @@
+datasource:
+  Ec2:
+    metadata_urls: ["http://169.254.169.254:80", "http://instance-data:8773"]
+    max_wait: 120
+    timeout: 50
+    apply_full_imds_network_config: true
+
+package_upgrade: true
+
+apt:
+  sources:
+    docker.list:
+      source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable"
+      keyid: 7EA0A9C3F273FCD8
+    kubernetes.list:
+      source: "deb https://apt.kubernetes.io/ kubernetes-xenial main"
+      keyid: 6A030B21BA07F4FB
+
+packages:
+  - [containerd.io, 1.4.3-1]
+  - [kubelet, 1.20.1-00]
+  - [kubeadm, 1.20.1-00]

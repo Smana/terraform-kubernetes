@@ -81,3 +81,26 @@ variable "cluster" {
     }
   }
 }
+
+variable "etcd_client_cert" {
+  description = "TLS client cert for external Etcd"
+  type        = string
+}
+
+variable "etcd_client_key" {
+  description = "TLS key for external Etcd"
+  type        = string
+}
+variable "etcd_ca_cert" {
+  description = "Etcd CA certificate"
+  type        = string
+}
+variable "etcd_ips" {
+  description = "Etcd IP addresses"
+  type        = string
+}
+
+variable "etcd_security_group_id" {
+  description = "Etcd security group ID"
+  type        = string
+}
