@@ -248,3 +248,13 @@ resource "aws_security_group_rule" "allow_etcd_internal" {
   source_security_group_id = aws_security_group.etcd.id
   security_group_id        = aws_security_group.etcd.id
 }
+
+# Allow clients from given CIDR to access to etcd
+resource "aws_security_group_rule" "ingress_etcd" {
+  type              = "ingress"
+  from_port         = 2379
+  to_port           = 2380
+  protocol          = "tcp"
+  cidr_blocks       = var.allowed_ingress_cidr
+  security_group_id = aws_security_group.etcd.id
+}

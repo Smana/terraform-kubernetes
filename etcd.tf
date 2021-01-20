@@ -13,6 +13,8 @@ module "etcd" {
   bastion_host = module.bastion.bastion_cname_dns
   hosted_zone  = var.hosted_zone
 
+  allowed_ingress_cidr = var.vpc.private_subnets
+
   keypair_name = aws_key_pair.keypair.key_name
 
   tls = {

@@ -47,6 +47,10 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "allowed_ingress_cidr" {
+  default = []
+}
+
 variable "members_count" {
   description = "Number of members in the cluster"
   type        = string
@@ -59,7 +63,7 @@ variable "instance_type" {
 }
 
 variable "tls" {
-  description = "Settings used to generate TLS certificates"
+  description = "Generate TLS certificates for the etcd cluster"
   type = object({
     ca_common_name              = string
     ca_organization             = string
@@ -76,22 +80,4 @@ variable "tls" {
     certs_validity_period_hours = 17520
     certs_early_renewal_hours   = 360
   }
-}
-
-variable "ca_cert_pem" {
-  description = "value"
-  type        = string
-  default     = null
-}
-
-variable "tls_certs" {
-  description = "value"
-  type        = map(any)
-  default     = {}
-}
-
-variable "tls_keys" {
-  description = "value"
-  type        = map(any)
-  default     = {}
 }

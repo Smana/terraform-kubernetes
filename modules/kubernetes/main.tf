@@ -103,7 +103,7 @@ data "aws_ami" "ubuntu" {
 /* control-plane instance */
 data "template_file" "init_control-plane" {
   count    = var.cluster.control_plane.count
-  template = file(format("%v/scripts/init_control-plane.sh", path.module))
+  template = file(format("%v/userdata/init_control-plane.sh", path.module))
 
   vars = {
     region              = var.region
@@ -112,13 +112,18 @@ data "template_file" "init_control-plane" {
     api_cname_dns       = aws_route53_record.k8s-api.fqdn
     api_elb_dns         = aws_elb.k8s-api.dns_name
     control_plane_index = count.index
+    etcd_ips            = var.etcd_ips
     kubeadm_token       = local.token
   }
 }
 
-data "template_file" "cloud_init_config" {
-  template = file(format("%v/scripts/cloudinit-config.yaml", path.module))
-  vars     = {}
+data "template_file" "cloud_init_config_control-plane" {
+  template = file(format("%v/userdata/cloudinit-config_control-plane.yaml", path.module))
+  vars = {
+    etcd_client_cert = base64gzip(var.etcd_client_cert)
+    etcd_client_key  = base64gzip(var.etcd_client_key)
+    etcd_ca_cert     = base64gzip(var.etcd_ca_cert)
+  }
 }
 
 data "template_cloudinit_config" "control-plane_cloud_init" {
@@ -129,7 +134,7 @@ data "template_cloudinit_config" "control-plane_cloud_init" {
   part {
     filename     = "cloud-init-config.yaml"
     content_type = "text/cloud-config"
-    content      = data.template_file.cloud_init_config.rendered
+    content      = data.template_file.cloud_init_config_control-plane.rendered
   }
 
   part {
@@ -233,12 +238,17 @@ resource "aws_elb" "k8s-api" {
 
 /* worker instances */
 data "template_file" "init_worker" {
-  template = file("${path.module}/scripts/init_worker.sh")
+  template = file("${path.module}/userdata/init_worker.sh")
 
   vars = {
     kubeadm_token = local.token
     api_elb_dns   = aws_elb.k8s-api.dns_name
   }
+}
+
+data "template_file" "cloud_init_config_worker" {
+  template = file(format("%v/userdata/cloudinit-config_worker.yaml", path.module))
+  vars     = {}
 }
 
 data "template_cloudinit_config" "worker_cloud_init" {
@@ -248,7 +258,7 @@ data "template_cloudinit_config" "worker_cloud_init" {
   part {
     filename     = "cloud-init-config.yaml"
     content_type = "text/cloud-config"
-    content      = data.template_file.cloud_init_config.rendered
+    content      = data.template_file.cloud_init_config_worker.rendered
   }
 
   part {
@@ -431,13 +441,11 @@ resource "null_resource" "wait_for_kubeadm_init" {
 
 resource "null_resource" "download_kubeconfig" {
   connection {
-    timeout = "10m"
-    host    = aws_instance.control-plane[0].private_ip
-    user    = var.ssh_user
-    #private_key         = var.ssh_private_key
+    timeout      = "10m"
+    host         = aws_instance.control-plane[0].private_ip
+    user         = var.ssh_user
     bastion_user = var.ssh_user
     bastion_host = var.bastion_host
-    #bastion_private_key = var.bastion_private_key
   }
 
   provisioner "local-exec" {
