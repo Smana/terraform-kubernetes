@@ -36,13 +36,16 @@ ip-10-0-2-55.eu-west-3.compute.internal    NotReady   <none>                 58s
 
 ### CNI Plugin
 
-* The cluster has been provision without `kube-proxy` that means that it is meant to be used with **Cilium**.
+* The cluster has been provision without `kube-proxy`. Indeed it is meant to be used with **Cilium**.
 * I tried to use the Helm provider but I'm not sure this is actually useful as I want to use a GitOps tool for apps deployment. Currently, I decided to run the Helm command using the CLI for the CNI plugin.
 * **Warning** about the pod CIDR, it must be different from the subnets you use within your VPC
 
 Here is an example of a Helm command that installs Cilium with kube-proxy replacement.
 
 ```console
+$ helm repo add cilium https://helm.cilium.io/
+"cilium" has been added to your repositories
+
 $ helm upgrade --install cilium cilium/cilium --version 1.9.1 --namespace kube-system \
 --set kubeProxyReplacement='strict' \
 --set k8sServiceHost=$(terraform output -json | jq -r '.api_dns.value'),k8sServicePort='6443' \
@@ -67,15 +70,39 @@ kube-controller-manager-ip-10-0-1-169.eu-west-3.compute.internal   1/1     Runni
 kube-scheduler-ip-10-0-1-169.eu-west-3.compute.internal            1/1     Running   0          5m59s
 ```
 
-
-
 ### Additional control-planes for high availablity
 
-**Note:** We use here a [stacked etcd topology](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/#stacked-etcd-topology). That means that the minimum of control plane instances for HA is 3.
+**Note:** We use here a [external etcd topology](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/ha-topology/#external-etcd-topology).
+
+Basically, we'll retrieve the command line to run in the second control-plane from the initial control-plane node.
+
+Connect to the first control-plane
 
 ```console
 $ BASTION=$(terraform output -json | jq -r '.bastion_host.value')
-$
+$ CP1=$(terraform output -json | jq -r '.control_plane_ips.value[0]')
+$ ssh -J ubuntu@${BASTION} ubuntu@${CP1}
+```
+
+From there we'll **retrieve the command line** from the userdata logs
+
+```console
+
+$ tail -n 20 /var/log/cloud-init-output.log | grep -C 2 '\-control-plane'
+  kubeadm join api-smana.cloud.smana.me:6443 --token d1meoo.ismcgj64t5mljpud \
+    --discovery-token-ca-cert-hash sha256:ad022c5ec37265c8c1c20ad53cb30298d539b25fc3c92a5ca2204fe72a1604f2 \
+    --control-plane --certificate-key 755faa13f436577a846f94358d467095d95d09faa4e9219ddda457a3c6861cce
+
+Please note that the certificate-key gives access to cluster sensitive data, keep it secret!
+```
+
+Run the **command line** in the **second** control-plane and **append** the `node-name`. The command would looks like
+
+```console
+kubeadm join api-smana.cloud.smana.me:6443 --token d1meoo.ismcgj64t5mljpud \
+    --discovery-token-ca-cert-hash sha256:ad022c5ec37265c8c1c20ad53cb30298d539b25fc3c92a5ca2204fe72a1604f2 \
+    --control-plane --certificate-key 755faa13f436577a846f94358d467095d95d09faa4e9219ddda457a3c6861cce \
+    --node-name $(cloud-init query ds.meta_data.hostname)
 ```
 
 ## License
