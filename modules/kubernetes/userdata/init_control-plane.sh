@@ -109,7 +109,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
-controlPlaneEndpoint: '$API_ELB_DNS:6443'
+controlPlaneEndpoint: '$API_CNAME_DNS:6443'
 apiServer:
   certSANs:
   - $API_CNAME_DNS
