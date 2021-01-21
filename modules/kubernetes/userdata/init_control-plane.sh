@@ -12,7 +12,7 @@ export API_CNAME_DNS="${api_cname_dns}"
 export API_ELB_DNS="${api_elb_dns}"
 export CONTROL_PLANE_INDEX="${control_plane_index}"
 export KUBEADM_TOKEN=${kubeadm_token}
-export ETCD_IPS="${etcd_ips}"
+export ETCD_ENDPOINTS="${etcd_endpoints}"
 export KUBERNETES_VERSION="1.20.1"
 
 # Set this only after setting the defaults
@@ -36,27 +36,6 @@ function wait_for_file()
     echo "error: the file $1 not found !"
     exit 1
 }
-
-function wait_for_tcp_open()
-{
-    local RETRIES=60
-    local ATTEMPT=0
-    local SLEEP=8
-
-    until [ $ATTEMPT -eq $RETRIES ]; do
-      if ! $(nc -zw 2 $1 $2);then
-        echo "warning: trying to connect to host $1 and port $2, waiting ..."
-        sleep $SLEEP
-        ((ATTEMPT=ATTEMPT+1))
-      else
-        return 0
-      fi
-    done
-    echo "error: the host $1 on port $2 is not reachable !"
-    exit 1
-}
-
-
 
 # --------------------------------
 # containerd
@@ -90,13 +69,15 @@ containerd config default > /etc/containerd/config.toml
 systemctl enable containerd kubelet
 systemctl restart containerd kubelet
 
-# Wait for ETCD certs and open TCP ports before running kubeadm
-ENDPOINTS=$(for i in $ETCD_IPS ; do echo -n "https://$i:2379, ";done)
+# Wait for certificates
 for FILE in "etcd-ca.pem" "etcd-client-tls.pem" "etcd-client-tls.key"; do
   wait_for_file "/etc/etcd/tls/$FILE"
 done
-for HOST in $ETCD_IPS;do
-  wait_for_tcp_open $HOST 2379
+
+# Trying to connect to etcd instances using the client certificate
+for EP in $(echo $ETCD_ENDPOINTS|tr -d ',');do
+  echo "INFO: Running an http request against the endpoint $EP..."
+  sudo curl -so /dev/null --cacert /etc/etcd/tls/etcd-ca.pem --cert /etc/etcd/tls/etcd-client-tls.pem --key /etc/etcd/tls/etcd-client-tls.key --connect-timeout 300 --max-time 300 $EP/version
 done
 
 if [ $CONTROL_PLANE_INDEX -eq 0 ]; then
@@ -147,7 +128,7 @@ dns:
   type: CoreDNS
 etcd:
   external:
-    endpoints: [$ENDPOINTS]
+    endpoints: [$ETCD_ENDPOINTS]
     caFile: /etc/etcd/tls/etcd-ca.pem
     certFile: /etc/etcd/tls/etcd-client-tls.pem
     keyFile: /etc/etcd/tls/etcd-client-tls.key

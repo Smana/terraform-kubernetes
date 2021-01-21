@@ -7,6 +7,15 @@ This module deploys a [Kubernetes](https://kubernetes.io/) cluster on AWS using 
 ## Requirements
 
 * A DNS zone. The [kops documentation](https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md#configure-dns) describes in details the way to do so.
+* Known Hosts issue: I had to configure my SSH as follows in order to avoid the errors related to unknown keys. I didn't find a better way yet (put your domain name here)
+
+  ```console
+  Host *.domain.tld
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+   HostKeyAlgorithms=+ssh-dss
+   AddKeysToAgent yes
+  ```
 
 ## How to use the modules
 
