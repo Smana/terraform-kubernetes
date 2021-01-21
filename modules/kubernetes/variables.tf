@@ -97,7 +97,7 @@ variable "etcd_ca_cert" {
 }
 variable "etcd_ips" {
   description = "Etcd IP addresses"
-  type        = string
+  type        = list(string)
 }
 
 variable "etcd_security_group_id" {

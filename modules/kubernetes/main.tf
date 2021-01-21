@@ -112,7 +112,7 @@ data "template_file" "init_control-plane" {
     api_cname_dns       = aws_route53_record.k8s-api.fqdn
     api_elb_dns         = aws_elb.k8s-api.dns_name
     control_plane_index = count.index
-    etcd_ips            = var.etcd_ips
+    etcd_endpoints      = join(", ", formatlist("https://%s:2379", var.etcd_ips))
     kubeadm_token       = local.token
   }
 }
