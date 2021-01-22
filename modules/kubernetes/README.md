@@ -105,6 +105,35 @@ kubeadm join api-smana.cloud.smana.me:6443 --token d1meoo.ismcgj64t5mljpud \
     --node-name $(cloud-init query ds.meta_data.hostname)
 ```
 
+## Roadmap
+Note: Opiniated choices that can be challenged
+
+Changes on terraform configs
+
+- [x] External Etcd
+- [x] Control plane High availability
+- [ ] Deploy the node local DNS architecture (as part of terraform ?)
+- [ ] Extract modules into distinct repositories (tls, etcd, bastion, kubernetes)
+- [ ] Workers kernel tuning
+- [ ] Tune etcd
+- [ ] Add a worker pool in the public subnet for loadbalancing
+- [ ] Default values with complexe variables (objects) [#7](https://github.com/Smana/terraform-kubernetes/issues/7)
+
+Documentation in order to have a complete setup
+
+- [x] Deploy Cilium as CNI plugin
+- [ ] Run end2end test (sonobuoy, CSI bench)
+- [ ] Configure Hubble
+- [ ] Nginx ingress controller as loadbalancing
+- [ ] Add a NLB in front of the Ingress controllers and check how the client IP is forwarded
+- [ ] External DNS to automatically provision domain names when an ingress is created
+- [ ] Deploy ArgoCD
+- [ ] Add cert-manager in order to be able to create certs with Letsencrypt
+- [ ] Prometheus operator, Grafana
+- [ ] Loki as logging solution
+- [ ] Deploy Vault (raft storage, KMS auto unseal) with sidecar injector
+- [ ] Configure a demo app to be deployed (GitOps)
+
 ## License
 
 This code is released under the Apache 2.0 License. Please see [LICENSE](https://github.com/Smana/terraform-kubernetes/tree/main/LICENSE) for more details.
